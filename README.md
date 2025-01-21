@@ -74,7 +74,8 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 ## USIGN NATIVEPHP
 - **[commands]composer create-project --prefer-dist laravel/laravel nameproject**
 - **[commands]composer require nativephp/electron**
-- **[commands]if using apis in your proyect php artisan install:api**
+- **[commands]if using apis in your project php artisan install:api**
+- **[commands]composer require mike42/escpos-php**
 - **[commands]sqlite required php artisan migrate**
 - **[commands]php artisan native:install**
 - **[commands]php artisan native:serve -v (use v for debugin)**
