@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,22 +18,23 @@
         <div class="w-full flex flex-col items-center justify-center p-6 space-x-6">
             <!--card-->
             <div class="w-96 h-50 shadow-md p-4 rounded-lg">
-                <form action="">
+                <form action="{{ route('auth.login') }}" id="auth_login_form" method="POST">
+                    @csrf
                     <div class="flex flex-col mb-4">
                         <label for="" class="text-xs text-gray-400 mb-2">Compañia</label>
-                        <select id="company_id" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2" onchange="auth.getStores()">
+                        <select id="company_id" name="company_id" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2" onchange="auth.getStores()">
                             <option value="">Selecciona la compañia</option>
                         </select>
                     </div>
                     <div class="flex flex-col mb-4">
                         <label for="" class="text-xs text-gray-400 mb-2">Tienda</label>
-                        <select id="store_id" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2">
+                        <select id="store_id" name="store_id" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2">
                             <option value="">Selecciona tu tienda</option>
                         </select>
                     </div>
                     <div class="flex flex-col mb-4">
                         <label for="" class="text-xs text-gray-400 mb-2">Contraseña</label>
-                        <input type="password" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2" placeholder="****" id="store_password">
+                        <input type="password" name="store_password" class="border border-red-200 rounded-md px-3 py-2 outline-none focus:border-red-500 focus:border-2" placeholder="****" id="store_password">
                     </div>
                     <div class="flex flex-col mb-4">
                         <button class="w-full bg-red-500 border rounded-lg py-2 text-white transition hover:bg-red-600" type="button" onclick="auth.login()">Ingresar</button>
@@ -45,4 +46,12 @@
     </section>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </body>
+<script>
+    document.getElementById('auth_login_form').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault(); // Prevenir el comportamiento por defecto
+        auth.login()
+      }
+    });
+  </script>
 </html>

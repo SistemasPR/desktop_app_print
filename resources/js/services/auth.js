@@ -1,10 +1,7 @@
 const save = {
-    loginPrintApp : function (store_id,password) {
-        const url = "https://pos.pizzaraul.com/api/app/login/loginPrintApp"
-        const data = {
-            store_id,
-            password
-        };
+    loginPrintApp : function (data_send,action) {
+        const url = action;
+        const data = data_send;
 
         fetch(url, {
             method: "POST",
@@ -32,9 +29,22 @@ const save = {
         })
         .then(data => {
             // Manejar la respuesta exitosa
-            console.log(data);
+            if(data.result.error){
+                Toastify({
+                    text: `${data.result.message}`,
+                    duration: 3000,
+                    style: {
+                        background: "red",
+                        color: "white"
+                    },
+                    newWindow: true,
+                    gravity: "bottom", // `top` or `bottom`
+                    position: "right", // `left`, `center` or `right`
+                }).showToast();
+            }else{
+                window.location = data.result.url;
+            }
             
-            window.location = '/';
         })
         .catch(error => {
             console.error("Error:", error); // Manejar el error

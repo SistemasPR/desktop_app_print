@@ -33,6 +33,10 @@ const auth = {
     login: () => {
         let password = document.getElementById('store_password').value;
         let store_id = document.getElementById('store_id').value;
+        let form = document.getElementById('auth_login_form');
+        let url = form.action;
+        const formData = new FormData(form);
+        let data_send = Object.fromEntries(formData.entries()); // convertir a json los objetos del formulario
         if(store_id == ""){
             Toastify({
                 text: `Debe seleccionar una tienda`,
@@ -61,7 +65,7 @@ const auth = {
             }).showToast();
             return false;
         }
-        save.loginPrintApp(store_id,password);
+        save.loginPrintApp(data_send,url);
     }
 }
 export default auth;

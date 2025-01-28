@@ -72,8 +72,9 @@ class PrintController extends Controller
     public function testingPrinterConnection(Request $request) {
         try {
             //code...
-            $nombreImpresora = "$request->name";
-            $connector = new WindowsPrintConnector($nombreImpresora);
+            $ip = "192.168.1.101";
+            $port = 9100;
+            $connector = new NetworkPrintConnector($ip, $port);
             $impresora = new Printer($connector);
             $impresora->text("<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");   
             $impresora->text("LA CONEXIÓN SE REALIZO CON EXITO\n");   
