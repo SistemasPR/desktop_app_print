@@ -6,14 +6,14 @@ use App\Http\Middleware\CoockieMiddleware;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('view.login')
+    return redirect()->route('view.login');
 });
 
 
 //auth
 Route::get('/auth',function () {
     return view('auth.login');
-})->name('view.login')->withoutMiddleware([CoockieMiddleware::class]);;
+})->name('view.login')->withoutMiddleware([CoockieMiddleware::class]);
 
 
 Route::controller(AuthController::class)->group(function (){

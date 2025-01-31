@@ -35,8 +35,77 @@ class PrintController extends Controller
 
     public function ticketVentaSalon(Request $request) {
         
-        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
-        self::ticketCocina($request->order,$request->items,$request->printer);
+        $order = (object) $request->order;
+        $items = (object) $request->items;
+        $printers = (object) $request->printer;
+
+
+        info(json_encode(["order"=>$order,"items"=>$items,"printers"=>$printers]));
+
+        //Desglose de categorias
+        $arItemsByCategory = [];
+        foreach ($items as $key) {
+            # code...
+            $key = (object) $key;
+            // Inicializa la categoría si no existe
+            if (!isset($arItemsByCategory[$key->category_id])) {
+                $arItemsByCategory[$key->category_id] = [];
+            }
+            // Item ingresado para la categoria
+            $arItemsByCategory[$key->category_id][] = $key;
+        }
+
+        info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
+
+        $printer_ip = "";
+        $printer_name = ""; 
+        $contain_category = true;
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+            $printer_ip_sec = "";
+            $printer_name_sec = "";
+            if($key->printer_ip != null){
+                $printer_ip_sec = $key->printer_ip;
+            }else{
+                $printer_name_sec  = $key->printer_title;
+            }
+
+            $arPrinter = [
+                "printer_ip"=>$printer_ip_sec,
+                "printer_name"=>$printer_name_sec
+            ];
+            if($key->category_id != null || $key->category_id != ""){
+                if (isset($arItemsByCategory[$key->category_id])) {
+                    self::ticketCocina($request->order,$arItemsByCategory[$key->category_id],$arPrinter);
+                }
+            }else{
+                $contain_category = false;
+            }
+        }
+
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+
+        if(!$contain_category){
+            self::ticketCocina($request->order,$items,$arPrinterPrincipal);
+        }
+
+        if($order->paid == 1){
+            self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal);
+        }
+
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
     public function ticketComandaApi(Request $request) {
@@ -101,13 +170,20 @@ class PrintController extends Controller
 
     public static function ticketBoletadeVenta($order,$items,$store,$correlativo,$printer){
         
-        $nombreImpresora = "$printer";
         $order = (object) $order;
         $items = (object) $items;
         $store = (object) $store;
         //$connector = new WindowsPrintConnector($nombreImpresora);
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
+
             $impresora = new Printer($connector);
             $date = date('d-m-Y');
             $horaActual = date('h:i:s A');
@@ -508,13 +584,18 @@ class PrintController extends Controller
                 break;
         }
 
-        $nombreImpresora = "$printer";
         $numero = "";
         if (isset($order->store_order_id)) {
             # code...
             $numero = $order->store_order_id != null ? $order->store_order_id : "";
         }
-        $connector = new WindowsPrintConnector($nombreImpresora);
+        if($printer["printer_ip"] != null){
+            $ip = $printer["printer_ip"];
+            $port = 9100;
+            $connector = new NetworkPrintConnector($ip, $port);
+        }else{
+            $connector = new WindowsPrintConnector($printer["printer_name"]);
+        }
         $impresora = new Printer($connector);
         $impresora->setJustification(Printer::JUSTIFY_LEFT);
         $impresora->setFont(PRINTER::FONT_A);
