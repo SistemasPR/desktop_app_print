@@ -22,12 +22,35 @@ class PrintController extends Controller
     public function ticketBoletadeVentaApi(Request $request) {
     
         $order = (object) $request->order;
-        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
+        $printers = (object) $request->printer;
+        $printer_ip = "";
+        $printer_name = ""; 
+        $contain_category = true;
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+        }
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+
+        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal);
+
         $arApp = ["ANDROID",'IOS','WEB','CALL'];
         $source_app = strtoupper($order->source_app);
         if(in_array($source_app,$arApp)){
             //self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
-            self::ticketDeliveryDriver($request->order,$request->items,$request->store,$request->printer);
+            self::ticketDeliveryDriver($request->order,$request->items,$request->store,$arPrinterPrincipal);
         }
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
@@ -109,7 +132,55 @@ class PrintController extends Controller
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
     public function ticketComandaApi(Request $request) {
-        self::ticketCocina($request->order,$request->items,$request->printer);
+        $order = (object) $request->order;
+        $items = (object) $request->items;
+        $printers = (object) $request->printer;
+        //Desglose de categorias
+        $arItemsByCategory = [];
+        foreach ($items as $key) {
+            # code...
+            $key = (object) $key;
+            // Inicializa la categoría si no existe
+            if (!isset($arItemsByCategory[$key->category_id])) {
+                $arItemsByCategory[$key->category_id] = [];
+            }
+            // Item ingresado para la categoria
+            $arItemsByCategory[$key->category_id][] = $key;
+        }
+        $printer_ip = "";
+        $printer_name = ""; 
+        $contain_category = true;
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+            $printer_ip_sec = "";
+            $printer_name_sec = "";
+            if($key->printer_ip != null){
+                $printer_ip_sec = $key->printer_ip;
+            }else{
+                $printer_name_sec  = $key->printer_title;
+            }
+
+            $arPrinter = [
+                "printer_ip"=>$printer_ip_sec,
+                "printer_name"=>$printer_name_sec
+            ];
+            if($key->category_id != null || $key->category_id != ""){
+                if (isset($arItemsByCategory[$key->category_id])) {
+                    self::ticketCocina($request->order,$arItemsByCategory[$key->category_id],$arPrinter);
+                }
+            }else{
+                $contain_category = false;
+            }
+        }
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
@@ -188,10 +259,18 @@ class PrintController extends Controller
             $date = date('d-m-Y');
             $horaActual = date('h:i:s A');
             $arOtr = ["OTR","OTROS","Otro","DNI"];
-            if(in_array($order->fiscal_doc_type, $arOtr)) {
-                $title_impresion = "BOLETA DE VENTA ELECTRÓNICA";
-            }else{
-                $title_impresion = "FACTURA ELECTRÓNICA";
+            switch ($order->fiscal_doc_type) {
+                case 'RUC':                
+                case 'FACTURA':
+                    $title_impresion = "FACTURA ELECTRÓNICA";
+                    break;
+                case 'DNI':
+                    $title_impresion = "BOLETA DE VENTA ELECTRÓNICA";
+                    break;
+                default:
+                    # code...
+                    $title_impresion = "BOLETA SIMPLE";
+                    break;
             }
 
             $impresora->setFont(PRINTER::FONT_B);
@@ -205,7 +284,7 @@ class PrintController extends Controller
             $impresora->text("$store->district_old, LIMA - LIMA\n");   
             $impresora->text("(01) 207 - 8130\n");   
             $impresora->setFont(PRINTER::FONT_B);
-            $impresora->text("www.pizzaraul.com\n");
+            $impresora->text("www.pizzaraul.work\n");
             $impresora->setEmphasis(true);
             $impresora->text("================================================================\n");
             $impresora->setFont(PRINTER::FONT_B);
@@ -299,7 +378,7 @@ class PrintController extends Controller
                 }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                     $q_promo = $item->q_prom;
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
                         $q_total = 0;
@@ -345,6 +424,8 @@ class PrintController extends Controller
                     $order_value = $precio * $item->quantity;
                     if($order_value == 0 || $order_value == 0.00){
                         $order_value = "";
+                    }else{
+                        $order_value = number_format($order_value, 2, '.', '');
                     }
                     $index ++;
                     // Divide la línea en tres partes
@@ -471,6 +552,7 @@ class PrintController extends Controller
                         $forma_pago = "SOLES $totalPagar";
                     }else{
                         $vuelto = floatval($order->payment_received) - floatval($order->total_price);
+                        $vuelto = number_format($vuelto, 2, '.', '');
                         $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
                     }
                 }else{
@@ -537,12 +619,12 @@ class PrintController extends Controller
             $impresora->text("Para consultar el comprobante ingresar a:\n");
     
     
-            $testStr ="https://www.pizzaraul.com/";
+            $testStr ="https://www.pizzaraul.work/";
             $impresora->setJustification(Printer::JUSTIFY_CENTER);
             $impresora->text("\n");
             $impresora->text("\n");
             $impresora -> qrCode($testStr, Printer::QR_ECLEVEL_L, 7);
-            $impresora->text("\nhttps://www.pizzaraul.com/\n");
+            $impresora->text("\nhttps://www.pizzaraul.work/\n");
             $impresora->cut();
             $impresora->close();
             return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
@@ -601,7 +683,8 @@ class PrintController extends Controller
         $impresora->setFont(PRINTER::FONT_A);
         $impresora->setTextSize(2,2);
         $impresora->setEmphasis(true);
-        $impresora->text($type_delivery . $mesa);
+        $uppercase = strtoupper($order->user_name);
+        $impresora->text("CLIENTE: $uppercase - ".$type_delivery . $mesa);
         $impresora->setTextSize(1,1);
         $impresora->text("\n");
         $impresora->text("N° ORDEN: $numero". "   -  ".$order->source_app);
@@ -612,10 +695,8 @@ class PrintController extends Controller
         $date =  date('d/m/Y', strtotime($order->created_at));
         $horaActual = date('H:i:s', strtotime($order->created_at));
         //contenido source
-        $uppercase = strtoupper($order->user_name);
         $impresora->text("FECHA :$date HORA:$horaActual\n");
         $impresora->setEmphasis(true);
-        $impresora->text("CLIENTE: $uppercase");
         $impresora->text("\n\n");
         $impresora->setTextSize(1,1);
         $index = 0;
@@ -760,30 +841,33 @@ class PrintController extends Controller
         $forma_pago = "";
         $payment_method = strtoupper($order->payment_method);
         $order->total_price = number_format($order->total_price, 2, '.', '');   
-        if($payment_method == "CASH"){
-            if($order->payment_received != null && $order->payment_received != ""){
-                if($order->payment_received == "Pago exacto"){
-                    $forma_pago = "SOLES $order->total_price";
+        if($payment_method != null){
+            if($payment_method == "CASH"){
+                if($order->payment_received != null && $order->payment_received != ""){
+                    if($order->payment_received == "Pago exacto"){
+                        $forma_pago = "SOLES $order->total_price";
+                    }else{
+                        $vuelto = floatval($order->payment_received) - floatval($order->total_price);
+                        $vuelto = number_format($vuelto, 2, '.', '');
+                        $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
+                    }
                 }else{
-                    $vuelto = floatval($order->payment_received) - floatval($order->total_price);
-                    $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
+                    $forma_pago = "SOLES $order->total_price";
                 }
+            }elseif($payment_method == "CARD"){
+                if($order->payment_mp != null && $order->payment_mp != ""){
+                    $forma_pago = "Tarjeta - $order->payment_mp - s/$order->total_price";
+                }else{
+                    $forma_pago = "Tarjeta - s/$order->total_price";
+                }
+            }elseif($payment_method == "PYA"){
+                    $forma_pago = "PEDIDOSYA! - s/$order->total_price";
+            }elseif($payment_method == "YAPE"){
+                    $forma_pago = "YAPE - s/ $order->total_price";
             }else{
-                $forma_pago = "SOLES $order->total_price";
+                $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
+                $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
             }
-        }elseif($payment_method == "CARD"){
-            if($order->payment_mp != null && $order->payment_mp != ""){
-                $forma_pago = "Tarjeta - $order->payment_mp - s/$order->total_price";
-            }else{
-                $forma_pago = "Tarjeta - s/$order->total_price";
-            }
-        }elseif($payment_method == "PYA"){
-                $forma_pago = "PEDIDOSYA! - s/$order->total_price";
-        }elseif($payment_method == "YAPE"){
-                $forma_pago = "YAPE - s/$order->total_price";
-        }else{
-            $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
-            $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
         }
         
         $impresora->text("------------------------------------------------\n");
@@ -801,13 +885,20 @@ class PrintController extends Controller
     }
 
     public function ticketDeliveryDriver($order,$items,$store,$printer) {
-        $nombreImpresora = "$printer";
+        //$nombreImpresora = "$printer";
         $order = (object) $order;
         $items = (object) $items;
         $store = (object) $store;
         //$connector = new WindowsPrintConnector($nombreImpresora);
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
             $impresora = new Printer($connector);
             $date = date('d-m-Y');
             $horaActual = date('h:i:s A');
@@ -952,6 +1043,8 @@ class PrintController extends Controller
                     $order_value = $precio * $item->quantity;
                     if($order_value == 0 || $order_value == 0.00){
                         $order_value = "";
+                    }else{
+                        $order_value = number_format($order_value, 2, '.', '');
                     }
                     $index ++;
                     // Divide la línea en tres partes
@@ -1043,6 +1136,7 @@ class PrintController extends Controller
                         $forma_pago = "SOLES $order->total_price";
                     }else{
                         $vuelto = floatval($order->payment_received) - floatval($order->total_price);
+                        $vuelto = number_format($vuelto, 2, '.', '');
                         $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
                     }
                 }else{
@@ -1134,7 +1228,7 @@ class PrintController extends Controller
     }
     
     public function ticketCierreCaja($store,$apertura_s,$suma_S,$ventas,$transactions_S,$usuario,$store_balance,$mercaderia,$printer) {
-        $nombreImpresora = "$printer";
+        //$nombreImpresora = "$printer";
         $store = (object) $store;
         $suma_S = (object) $suma_S;
         if($ventas != null){
@@ -1148,7 +1242,14 @@ class PrintController extends Controller
         $mercaderia = (object) $mercaderia;
         $apertura_s = (object) $apertura_s;
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
             $impresora = new Printer($connector);
             $date = date('d/m/Y');
             $horaActual = date('h:i:s A');
@@ -1467,9 +1568,16 @@ class PrintController extends Controller
     public function ticketPaloteo($store,$data,$printer){
         $store = (object) $store;
         $data = (object) $data;
-        $nombreImpresora = "$printer";
+        //$nombreImpresora = "$printer";
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
             $impresora = new Printer($connector);
             
             $impresora->setJustification(Printer::JUSTIFY_CENTER);
@@ -1591,9 +1699,16 @@ class PrintController extends Controller
 
     public function ticketInventario($store,$data,$printer){
         $store = (object) $store;
-        $nombreImpresora = "$printer";
+        //$nombreImpresora = "$printer";
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
             $impresora = new Printer($connector);
             
             $impresora->setJustification(Printer::JUSTIFY_CENTER);
@@ -1672,9 +1787,15 @@ class PrintController extends Controller
     public function ticketMovimiento($movimiento,$store,$printer) {
         $movimiento = (object) $movimiento;
         $store = (object) $store;
-        $nombreImpresora = "$printer";
+        //$nombreImpresora = "$printer";
         try {
-            $connector = new WindowsPrintConnector($nombreImpresora);
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
             $impresora = new Printer($connector);
             
             $impresora->setJustification(Printer::JUSTIFY_CENTER);

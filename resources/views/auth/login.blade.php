@@ -18,7 +18,7 @@
         <div class="w-full flex flex-col items-center justify-center p-6 space-x-6">
             <!--card-->
             <div class="w-96 h-50 shadow-md p-4 rounded-lg">
-                <form action="{{ route('auth.login') }}" id="auth_login_form" method="POST">
+                <form action="{{ route('auth.login') }}" id="auth_login_form" method="POST" class="flex-none">
                     @csrf
                     <div class="flex flex-col mb-4">
                         <label for="" class="text-xs text-gray-400 mb-2">Compañia</label>
@@ -40,6 +40,7 @@
                         <button class="w-full bg-red-500 border rounded-lg py-2 text-white transition hover:bg-red-600" type="button" onclick="auth.login()">Ingresar</button>
                     </div>
                 </form>
+                <p class="text-3xl">Manten abierto este aplicativo al momento de estar en venta o recibiendo pedidos</p>
             </div>
             <span class="text-gray-300 text-xs mt-4">Todos los derechos reservados Pizza Raul ©</span>
         </div>

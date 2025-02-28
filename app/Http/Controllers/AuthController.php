@@ -34,10 +34,11 @@ class AuthController extends Controller
         ];
         try {
             //code...
-            $url = 'https://pos.pizzaraul.com/api/app/login/loginPrintApp';
+            $url = 'https://pos.pizzaraul.work/api/app/login/loginPrintApp';
             $response = Http::withoutVerifying()->post($url, $send_pos);
-            if($response->successful()){
+            if($response->successful()){    
                 $data = $response->json();
+                info(json_encode($data));
                 $data = $data["result"];
                 if($data["status"]){
                     $result->result = [

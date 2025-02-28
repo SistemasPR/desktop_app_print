@@ -1,7 +1,7 @@
 const conexion = {
     apiGetCompanys : function () {
         return new Promise((resolve, reject) => {
-            fetch(`https://pos.pizzaraul.com/api/app/store/getCompanys`)
+            fetch(`https://pos.pizzaraul.work/api/app/store/getCompanys`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -27,7 +27,7 @@ const conexion = {
     },
     apiGetStores : function (company_id) {
         return new Promise((resolve, reject) => {
-            fetch(`https://pos.pizzaraul.com/api/app/store/getStores?company_id=${company_id}`)
+            fetch(`https://pos.pizzaraul.work/api/app/store/getStores?company_id=${company_id}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -79,7 +79,7 @@ const conexion = {
     },
     apiGetCategories: (company_id) => {
         return new Promise((resolve, reject) => {
-            fetch(`https://pos.pizzaraul.com/api/app/categories?company_id=${company_id}`)
+            fetch(`https://pos.pizzaraul.work/api/app/categories?company_id=${company_id}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
