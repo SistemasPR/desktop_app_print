@@ -453,170 +453,149 @@ class PrintController extends Controller
     
             }
 
-            // if($order->delivery_price != 0.00 && $order->delivery_price != "0.00"){
-            //     $index ++;
-            //     $parteIzquierda = "$index >" . " Delivery";
-            //     $parteCentro = "";
-            //     $parteDerecha = round($order->delivery_price, 2);
-            //     // Alineación a la izquierda
-            //     $impresora->text($parteIzquierda);
+            if($correlativo != null || $correlativo != ""){
+                $impresora->setFont(PRINTER::FONT_B);
+                $igv = $store->cfd_igv;
+                $igv = number_format($igv, 2, '.', '');
+                $porIgv = $igv / 100;
+                $porIgv = doubleval($porIgv);
+                $order_sin_impuesto = $order->total_price / ( 1 + $porIgv );
+                $order_sin_impuesto =  round($order_sin_impuesto, 2);
+
+                $msjOP = "OP. GRAVADAS: S/";
+                $impresora->text($msjOP);
+                $espaciosCentro = 0;
+                $espaciosCentro = self::CalculaEspacio($msjOP,$order_sin_impuesto);
+                $parteCentro = "";
+                for ($i = 0; $i < $espaciosCentro; $i++) {
+                    $parteCentro .= " ";
+                }
+                $impresora->text($parteCentro);
+                $impresora->text("$order_sin_impuesto");
+                $impresora->text("\n");
+
+
                 
-            //     // Calcula la cantidad de espacios entre las partes
-            //     $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
-
-            //     // Alineación central (agrega espacios en blanco)
-            //     for ($i = 0; $i < $espaciosCentro; $i++) {
-            //         $parteCentro .= " ";
-            //     }
-            //     $impresora->text($parteCentro);
+                $msjIgv = "IGV ($igv%): S/";
+                $impresora->text($msjIgv);
+                $order_impuesto = $order_sin_impuesto * $porIgv;
+                $order_impuesto = round($order_impuesto, 2);
+                $espaciosCentro = 0;
+                $espaciosCentro = self::CalculaEspacio($msjIgv,$order_impuesto);
+                $parteCentro = "";
+                for ($i = 0; $i < $espaciosCentro; $i++) {
+                    $parteCentro .= " ";
+                }
+                $impresora->text($parteCentro);
+                $impresora->text("$order_impuesto");
+                $impresora->text("\n");
+        
+                $msjTotalPagar = "TOTAL A PAGAR S/";
+                $impresora->text($msjTotalPagar);
+                $totalPagar = number_format($order->total_price, 2, '.', '');
+                $espaciosCentro = 0;
+                $espaciosCentro = self::CalculaEspacio($msjTotalPagar,$totalPagar);
+                $parteCentro = "";
+                for ($i = 0; $i < $espaciosCentro; $i++) {
+                    $parteCentro .= " ";
+                }
+                $impresora->text($parteCentro);
+                $impresora->text("$totalPagar");
+                $impresora->text("\n");
                 
-            //     // Alineación a la derecha
-            //     $impresora->text($parteDerecha);
-            //     $impresora->text("\n");
-            // }
+                $arApp = ["ANDROID",'IOS','WEB'];
+                $source_app_validate = strtoupper($order->source_app);
+                $source_app = "";
+                if(in_array($source_app_validate,$arApp)){
+                    $source_app = "APLICATIVO";
+                }elseif($source_app_validate == "CALL"){
+                    $source_app = "CALLCENTER";
+                }else{
+                    $source_app = "TIENDA";
+                }
+        
+                $impresora->setFont(PRINTER::FONT_B);
+                $impresora->text("================================================================\n");;
+                $impresora->text("Información Adicional\n");
+                $impresora->text("N° de pedido de tienda: $order->store_order_id \n"); //
 
-
-
-    
-            $impresora->setFont(PRINTER::FONT_B);
-            $igv = $store->cfd_igv;
-            $igv = number_format($igv, 2, '.', '');
-            $porIgv = $igv / 100;
-            $porIgv = doubleval($porIgv);
-            $order_sin_impuesto = $order->total_price / ( 1 + $porIgv );
-            $order_sin_impuesto =  round($order_sin_impuesto, 2);
-
-            $msjOP = "OP. GRAVADAS: S/";
-            $impresora->text($msjOP);
-            $espaciosCentro = 0;
-            $espaciosCentro = self::CalculaEspacio($msjOP,$order_sin_impuesto);
-            $parteCentro = "";
-            for ($i = 0; $i < $espaciosCentro; $i++) {
-                $parteCentro .= " ";
-            }
-            $impresora->text($parteCentro);
-            $impresora->text("$order_sin_impuesto");
-            $impresora->text("\n");
-
-
-            
-            $msjIgv = "IGV ($igv%): S/";
-            $impresora->text($msjIgv);
-            $order_impuesto = $order_sin_impuesto * $porIgv;
-            $order_impuesto = round($order_impuesto, 2);
-            $espaciosCentro = 0;
-            $espaciosCentro = self::CalculaEspacio($msjIgv,$order_impuesto);
-            $parteCentro = "";
-            for ($i = 0; $i < $espaciosCentro; $i++) {
-                $parteCentro .= " ";
-            }
-            $impresora->text($parteCentro);
-            $impresora->text("$order_impuesto");
-            $impresora->text("\n");
-    
-            $msjTotalPagar = "TOTAL A PAGAR S/";
-            $impresora->text($msjTotalPagar);
-            $totalPagar = number_format($order->total_price, 2, '.', '');
-            $espaciosCentro = 0;
-            $espaciosCentro = self::CalculaEspacio($msjTotalPagar,$totalPagar);
-            $parteCentro = "";
-            for ($i = 0; $i < $espaciosCentro; $i++) {
-                $parteCentro .= " ";
-            }
-            $impresora->text($parteCentro);
-            $impresora->text("$totalPagar");
-            $impresora->text("\n");
-            
-            $arApp = ["ANDROID",'IOS','WEB'];
-            $source_app_validate = strtoupper($order->source_app);
-            $source_app = "";
-            if(in_array($source_app_validate,$arApp)){
-                $source_app = "APLICATIVO";
-            }elseif($source_app_validate == "CALL"){
-                $source_app = "CALLCENTER";
-            }else{
-                $source_app = "TIENDA";
-            }
-    
-            $impresora->setFont(PRINTER::FONT_B);
-            $impresora->text("================================================================\n");;
-            $impresora->text("Información Adicional\n");
-            $impresora->text("N° de pedido de tienda: $order->store_order_id \n"); //
-
-            $forma_pago = "";
-            $payment_method = strtoupper($order->payment_method);
-            $paid = ""; //$order->paid == 1 ? "Pagado" : "Pendiente";
-            if($payment_method == "CASH"){
-                if($order->payment_received != null && $order->payment_received != ""){
-                    if($order->payment_received == "Pago exacto" || $order->payment_received == "Pagará exacto"){
-                        $forma_pago = "SOLES $totalPagar";
+                $forma_pago = "";
+                $payment_method = strtoupper($order->payment_method);
+                $paid = ""; //$order->paid == 1 ? "Pagado" : "Pendiente";
+                if($payment_method == "CASH"){
+                    if($order->payment_received != null && $order->payment_received != ""){
+                        if($order->payment_received == "Pago exacto" || $order->payment_received == "Pagará exacto"){
+                            $forma_pago = "SOLES $totalPagar";
+                        }else{
+                            $vuelto = floatval($order->payment_received) - floatval($order->total_price);
+                            $vuelto = number_format($vuelto, 2, '.', '');
+                            $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
+                        }
                     }else{
-                        $vuelto = floatval($order->payment_received) - floatval($order->total_price);
-                        $vuelto = number_format($vuelto, 2, '.', '');
-                        $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
+                        $forma_pago = "SOLES $totalPagar";
+                    }
+                }elseif($payment_method == "CARD"){
+                    if($order->payment_mp != null && $order->payment_mp != ""){
+                        $forma_pago = "Tarjeta - $order->payment_mp - $totalPagar";
+                    }else{
+                        $forma_pago = "Tarjeta - $totalPagar";
+                    }
+                }elseif($payment_method == "YAPE"){
+                        $forma_pago = "YAPE - s/$totalPagar";
+                }elseif($payment_method == "PYA"){
+                    $forma_pago = "PEDIDOSYA! - s/$totalPagar";
+                }else{
+                    $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
+                    $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
+                }
+
+                $impresora->text("Forma de Pago: ".' '."$forma_pago"."\n");
+                $impresora->text("$paid\n");
+                $impresora->text("Caja: 01\n");
+                $impresora->text("Canal: $source_app\n");
+                $impresora->text("Cliente: $order->user_name\n");
+                if($order->operator_name != "" && $order->operator_name != null){
+                    $impresora->text("Vendedor: $order->operator_name\n");
+                }
+
+                $payment_method = "";
+                $payment_received = "no aplica";
+                if($order->payment_method != "Yape"){
+                    $payment_method = $order->payment_method == "CARD" ? "Pago con tarjeta" :  "Pago al contado";
+                    if($order->payment_received != ""){
+                        $payment_received = $order->payment_received;
                     }
                 }else{
-                    $forma_pago = "SOLES $totalPagar";
+                    $payment_method = "Pago con $order->payment_method";
                 }
-            }elseif($payment_method == "CARD"){
-                if($order->payment_mp != null && $order->payment_mp != ""){
-                    $forma_pago = "Tarjeta - $order->payment_mp - $totalPagar";
+
+                //si es delivery
+                if($order->order_type == 1){
+                    $payment_way = "Online";
+                    $impresora->text("Tipo de pago: $payment_way\n");
+                    //$impresora->text("Metodo de pago: $payment_method - $paid\n");
+                    if($order->courier_name != null || $order->courier_name != ""){
+                        $impresora->text("Motorizado: $order->courier_name\n");
+                    }
+                    $impresora->text("\n");
+                    $impresora->text("================================================================\n");
+                    $impresora->text("FIRMA:\n");
+                    $impresora->text("================================================================\n");
+                    $impresora->text("DNI:\n");
                 }else{
-                    $forma_pago = "Tarjeta - $totalPagar";
-                }
-            }elseif($payment_method == "YAPE"){
-                    $forma_pago = "YAPE - s/$totalPagar";
-            }elseif($payment_method == "PYA"){
-                $forma_pago = "PEDIDOSYA! - s/$totalPagar";
-            }else{
-                $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
-                $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
-            }
+                    // $payment_way = "Contraentrega";
 
-            $impresora->text("Forma de Pago: ".' '."$forma_pago"."\n");
-            $impresora->text("$paid\n");
-            $impresora->text("Caja: 01\n");
-            $impresora->text("Canal: $source_app\n");
-            $impresora->text("Cliente: $order->user_name\n");
-            if($order->operator_name != "" && $order->operator_name != null){
-                $impresora->text("Vendedor: $order->operator_name\n");
-            }
-
-            $payment_method = "";
-            $payment_received = "no aplica";
-            if($order->payment_method != "Yape"){
-                $payment_method = $order->payment_method == "CARD" ? "Pago con tarjeta" :  "Pago al contado";
-                if($order->payment_received != ""){
-                    $payment_received = $order->payment_received;
-                }
-            }else{
-                $payment_method = "Pago con $order->payment_method";
-            }
-
-            //si es delivery
-            if($order->order_type == 1){
-                $payment_way = "Online";
-                $impresora->text("Tipo de pago: $payment_way\n");
-                //$impresora->text("Metodo de pago: $payment_method - $paid\n");
-                if($order->courier_name != null || $order->courier_name != ""){
-                    $impresora->text("Motorizado: $order->courier_name\n");
+                    // $impresora->text("Forma de pago: $payment_way\n");
+                    // $impresora->text("Metodo de pago: $payment_method - $paid\n");
+                    // $impresora->text("Efectivo: $payment_received\n");
                 }
                 $impresora->text("\n");
-                $impresora->text("================================================================\n");
-                $impresora->text("FIRMA:\n");
-                $impresora->text("================================================================\n");
-                $impresora->text("DNI:\n");
-            }else{
-                // $payment_way = "Contraentrega";
-
-                // $impresora->text("Forma de pago: $payment_way\n");
-                // $impresora->text("Metodo de pago: $payment_method - $paid\n");
-                // $impresora->text("Efectivo: $payment_received\n");
+                $impresora->setJustification(Printer::JUSTIFY_CENTER);
+                $impresora->text("Representación impresa de la \n$title_impresion\n");
+                $impresora->text("Para consultar el comprobante ingresar a:\n");
             }
-            $impresora->text("\n");
-            $impresora->setJustification(Printer::JUSTIFY_CENTER);
-            $impresora->text("Representación impresa de la \n$title_impresion\n");
-            $impresora->text("Para consultar el comprobante ingresar a:\n");
+
+    
     
     
             $testStr ="https://www.pizzaraul.work/";

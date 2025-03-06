@@ -13,7 +13,7 @@ class NativeAppServiceProvider implements ProvidesPhpIni
      */
     public function boot(): void
     {
-        Window::open()->url(route('print.home'))->title('Aplicativo de Impresión');
+        Window::open()->url(route('view.login'))->title('Aplicativo de Impresión');
     }
 
     /**

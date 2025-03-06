@@ -21,13 +21,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
-        Window::onClose(function ($window) {
-            $result = Dialog::confirm('¿Estás seguro de que quieres cerrar la aplicación?');
+        /*Window::current()->onEvent('attempt-close', function () {
+            $confirm = Dialog::confirm('¿Estás seguro de que quieres cerrar la aplicación?');
     
-            if (!$result) {
-                $window->preventClose(); // Evita que la ventana se cierre
+            if (!$confirm) {
+                return; // No cerrar la ventana
             }
-        });
+    
+            Window::current()->close(); // Cierra la ventana si el usuario confirma
+        });*/
     }
 }
