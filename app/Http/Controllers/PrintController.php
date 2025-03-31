@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
+date_default_timezone_set('America/Lima');
 
 class PrintController extends Controller
 {
@@ -30,7 +31,7 @@ class PrintController extends Controller
             $key = (object)$key;
             info(json_encode(["printers_key" => $key]));
             # code...
-            if($key->printer_status == 2){
+            if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
                     $printer_ip = $key->printer_ip;
                 }else{
@@ -87,7 +88,7 @@ class PrintController extends Controller
             $key = (object)$key;
             info(json_encode(["printers_key" => $key]));
             # code...
-            if($key->printer_status == 2){
+            if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
                     $printer_ip = $key->printer_ip;
                 }else{
@@ -186,24 +187,107 @@ class PrintController extends Controller
 
     public function ticketCierreApi(Request $request) {
         //info(json_encode($request->all()));
-        self::ticketCierreCaja($request->store,$request->apertura_s,$request->suma_S,$request->ventas,$request->transactions_S,$request->usuario,$request->store_balance,$request->mercaderia,$request->printer);
+        
+        $printers = (object) $request->printer;
+        $printer_ip = "";
+        $printer_name = ""; 
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2 || $key->printer_status == 3){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+        }
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+
+        self::ticketCierreCaja($request->store,$request->apertura_s,$request->suma_S,$request->ventas,$request->transactions_S,$request->usuario,$request->store_balance,$request->mercaderia,$arPrinterPrincipal);
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
     public function ticketPaloteoApi(Request $request) {
         //info(json_encode($request->all()));
-        self::ticketPaloteo($request->store,$request->data,$request->printer);
+        $printers = (object) $request->printer;
+        $printer_ip = "";
+        $printer_name = ""; 
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2 || $key->printer_status == 3){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+        }
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+
+        self::ticketPaloteo($request->store,$request->data,$arPrinterPrincipal);
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
     public function ticketInventarioApi(Request $request) {
         //info(json_encode($request->all()));
-        self::ticketInventario($request->store,$request->data,$request->printer);
+        $printers = (object) $request->printer;
+        $printer_ip = "";
+        $printer_name = ""; 
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2 || $key->printer_status == 3){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+        }
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+        self::ticketInventario($request->store,$request->data,$arPrinterPrincipal);
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
     public function ticketMovimientoApi(Request $request) {
-        self::ticketMovimiento($request->movimiento,$request->store,$request->printer);
+        $printers = (object) $request->printer;
+        $printer_ip = "";
+        $printer_name = ""; 
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2 || $key->printer_status == 3){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+        }
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+        self::ticketMovimiento($request->movimiento,$request->store,$arPrinterPrincipal);
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
@@ -256,8 +340,6 @@ class PrintController extends Controller
             }
 
             $impresora = new Printer($connector);
-            $date = date('d-m-Y');
-            $horaActual = date('h:i:s A');
             $arOtr = ["OTR","OTROS","Otro","DNI"];
             switch ($order->fiscal_doc_type) {
                 case 'RUC':                
@@ -277,14 +359,24 @@ class PrintController extends Controller
             $impresora->setJustification(Printer::JUSTIFY_CENTER);
             $impresora->setTextSize(1, 1);
             $impresora->setEmphasis(true);
-            $impresora->text("PASTAS Y PIZZAS\n");
+
+            if($correlativo == null || $correlativo == ""){
+                $impresora->text("PRE CUENTA\n");
+            }
+
+            if($order->company_id == "STEAKHOUSE"){
+                $impresora->text("PATIO CAVENECIA STEAKHOUSE\n");
+            }else{
+                $impresora->text("PASTAS Y PIZZAS\n");
+            }
+
             $impresora->text("$store->razon_social\n");   
             $impresora->text("$store->nro_ruc\n");   
             $impresora->text("$store->street_name  $store->street_number\n");   
             $impresora->text("$store->district_old, LIMA - LIMA\n");   
             $impresora->text("(01) 207 - 8130\n");   
             $impresora->setFont(PRINTER::FONT_B);
-            $impresora->text("www.pizzaraul.work\n");
+            //$impresora->text("www.pizzaraul.work\n");
             $impresora->setEmphasis(true);
             $impresora->text("================================================================\n");
             $impresora->setFont(PRINTER::FONT_B);
@@ -295,6 +387,8 @@ class PrintController extends Controller
             $impresora->setTextSize(1, 1);
             $impresora->text("================================================================\n");
             $impresora->setJustification(Printer::JUSTIFY_LEFT);
+            $date =  date('d/m/Y', strtotime($order->created_at));
+            $horaActual = date('H:i:s', strtotime($order->created_at));
             $impresora->text("F.Emisión: $date\n");
             $impresora->text("H.Emisión: $horaActual\n");
             $impresora->text("Orden de compra: $order->id\n");
@@ -308,7 +402,7 @@ class PrintController extends Controller
             $impresora->text("i     Descripción                                             s/\n");
             $impresora->text("----------------------------------------------------------------\n");
     
-            $index = 0;
+            $index = "";
             $auxItem = 0;
             $auxPromId = 0;
     
@@ -316,12 +410,12 @@ class PrintController extends Controller
                 $item = (object) $item;
                 $impresora->setFont(PRINTER::FONT_B);
                 if(($item->item_id != $auxItem ) && ($item->promotion_id != null) ){
-                    $index ++;
+                    //$index ++;
                     $auxItem = $item->item_id;
                     $auxPromId = $item->promotion_id;
                     $nombre = mb_substr($item->promotion_name, 0, 50);
                     $precio = number_format($item->price, 2, '.', ''); 
-                    $qprom = $index." > ".$item->q_prom."x ";
+                    $qprom = $index."   ".$item->q_prom."x ";
                     $order_value = $precio * $item->q_prom;
                     // Divide la línea en tres partes
                     $parteIzquierda = $qprom . $nombre;
@@ -347,7 +441,7 @@ class PrintController extends Controller
                     $q_promo = $item->q_prom;
                     
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
                         $q_total = 0;
@@ -412,7 +506,7 @@ class PrintController extends Controller
                 if($auxItem == 0){
                     $size_name = "";
 
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                         $nombre = $item->quantity.'x'.' '.$item->product_name.' '.$terms;
                     }else{
@@ -427,9 +521,9 @@ class PrintController extends Controller
                     }else{
                         $order_value = number_format($order_value, 2, '.', '');
                     }
-                    $index ++;
+                    //$index ++;
                     // Divide la línea en tres partes
-                    $parteIzquierda = "$index >" . $nombre;
+                    $parteIzquierda = "$index  " . $nombre;
                     $parteCentro = "";
                     $parteDerecha = $order_value;
                 
@@ -593,20 +687,50 @@ class PrintController extends Controller
                 $impresora->setJustification(Printer::JUSTIFY_CENTER);
                 $impresora->text("Representación impresa de la \n$title_impresion\n");
                 $impresora->text("Para consultar el comprobante ingresar a:\n");
+            }else{
+                $msjTotalPagar = "TOTAL A PAGAR S/";
+                $impresora->text($msjTotalPagar);
+                $totalPagar = number_format($order->total_price, 2, '.', '');
+                $espaciosCentro = 0;
+                $espaciosCentro = self::CalculaEspacio($msjTotalPagar,$totalPagar);
+                $parteCentro = "";
+                for ($i = 0; $i < $espaciosCentro; $i++) {
+                    $parteCentro .= " ";
+                }
+                $impresora->text($parteCentro);
+                $impresora->text("$totalPagar");
+                $impresora->text("\n");
+
+                //propina
+                $first_tip = number_format($order->total_price * 0.10, 2, '.', ''); ;
+                $second_tip = number_format($order->total_price * 0.15, 2, '.', ''); ;
+                $third_tip = number_format($order->total_price * 0.20, 2, '.', ''); ;
+
+                $impresora->text("\n");
+                $impresora->text("PROPINA SUGERIDA");
+                $impresora->text("\n");
+                $impresora->text("10% = ".$first_tip."\n");
+                $impresora->text("15% = ".$second_tip."\n");
+                $impresora->text("20% = ".$third_tip."\n");
+                $impresora->text("\n");
+                $impresora->text("RUC / DNI :\n");
+                $impresora->text("RAZON SOCIAL / NOMBRE\n");
             }
 
+            if($order->company_id == "PIZZARAUL"){
+                $testStr ="https://www.pizzaraul.com/";
+                $impresora->setJustification(Printer::JUSTIFY_CENTER);
+                $impresora->text("\n");
+                $impresora->text("\n");
+                $impresora -> qrCode($testStr, Printer::QR_ECLEVEL_L, 7);
+                $impresora->text("\nhttps://www.pizzaraul.com/\n");
+            }else{
+            }
     
-    
-    
-            $testStr ="https://www.pizzaraul.work/";
-            $impresora->setJustification(Printer::JUSTIFY_CENTER);
-            $impresora->text("\n");
-            $impresora->text("\n");
-            $impresora -> qrCode($testStr, Printer::QR_ECLEVEL_L, 7);
-            $impresora->text("\nhttps://www.pizzaraul.work/\n");
             $impresora->cut();
             $impresora->close();
             return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
+    
         } catch (\Throwable $th) {
             //throw $th;
             // Capturar mensaje del error
@@ -623,10 +747,11 @@ class PrintController extends Controller
         }
     }
 
+
     public static function ticketCocina($order,$items,$printer){
         $order = (object) $order;
         $items = (object) $items;
-        $mesa = $order->user_table == null ? "" : " --- " . $order->user_table;
+        $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
         $type_delivery = "";
         switch ($order->order_type) {
             case '2':
@@ -660,11 +785,12 @@ class PrintController extends Controller
         $impresora = new Printer($connector);
         $impresora->setJustification(Printer::JUSTIFY_LEFT);
         $impresora->setFont(PRINTER::FONT_A);
-        $impresora->setTextSize(2,2);
+        $impresora->setTextSize(1,1);
         $impresora->setEmphasis(true);
         $uppercase = strtoupper($order->user_name);
         $impresora->text("CLIENTE: $uppercase - ".$type_delivery . $mesa);
         $impresora->setTextSize(1,1);
+        $impresora->text("\n");
         $impresora->text("\n");
         $impresora->text("N° ORDEN: $numero". "   -  ".$order->source_app);
         $impresora->setJustification(Printer::JUSTIFY_CENTER);
@@ -714,7 +840,7 @@ class PrintController extends Controller
                 
                 $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                 $q_promo = $item->q_prom;
-                if($item->size_id == 9) {
+                if($item->size_id == 9 || $item->size_id == 14) {
                     $arApp = ["ANDROID",'IOS','WEB'];
                     $source_app = strtoupper($order->source_app);
                     $q_total = 0;
@@ -739,12 +865,17 @@ class PrintController extends Controller
                 }
                 $nombre_it = strtoupper($nombre_it);
                 //$impresora->setFont(PRINTER::FONT_B);
-                $impresora->text("$nombre_it \n");
+                $impresora->text("$nombre_it");
+                if($item->notes != null){
+                    $impresora->setFont(PRINTER::FONT_B);
+                    $impresora->text("Nota: ".$item->notes);
+                }
+                $impresora->setFont(PRINTER::FONT_A);
 
             }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
                 $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                 $q_promo = $item->q_prom;
-                if($item->size_id == 9) {
+                if($item->size_id == 9 || $item->size_id == 14) {
                     $arApp = ["ANDROID",'IOS','WEB'];
                     $source_app = strtoupper($order->source_app);
                     $q_total = 0;
@@ -769,14 +900,19 @@ class PrintController extends Controller
                 }
                 $nombre_it = strtoupper($nombre_it);
                 //$impresora->setFont(PRINTER::FONT_B);
-                $impresora->text("$nombre_it \n");
+                $impresora->text("$nombre_it");
+                if($item->notes != null){
+                    $impresora->setFont(PRINTER::FONT_B);
+                    $impresora->text("Nota: ".$item->notes);
+                }
+                $impresora->setFont(PRINTER::FONT_A);
             }else{
                 $auxItem = 0;
             }
 
             if($auxItem == 0){
                 $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
-                if($item->size_id == 9) {
+                if($item->size_id == 9 || $item->size_id == 14) {
                     $nombre = $item->quantity.''.' '.$item->product_name.$terms;
                 }else{
                     $arSizeName = explode('(',$item->size_name);
@@ -804,6 +940,11 @@ class PrintController extends Controller
                 
                 // Alineación a la derecha
                 //$impresora->text($parteDerecha);
+                if($item->notes != null){
+                    $impresora->setFont(PRINTER::FONT_B);
+                    $impresora->text("Nota: ".$item->notes);
+                }
+                $impresora->setFont(PRINTER::FONT_A);
                 $impresora->text("\n");
             }
         
@@ -853,7 +994,13 @@ class PrintController extends Controller
         $impresora->text("FORMA DE PAGO".' '."$forma_pago"."\n");
         $is_payment = $order->paid == 1 ? 'PAGADO' : 'POR PAGAR';
         $impresora->text("$is_payment\n");
-
+        try {
+            $impresora->alarm(3,100); // Intentar activar la alarma
+        } catch (\Throwable $th) {
+            // Si no es compatible, simplemente ignorar el error
+            $impresora->getPrintConnector()->write("\x07");
+            //error_log("La impresora no admite alarm(). Continuando sin alarmas.");
+        }
 
         //$testStr ="https://www.pizzaraul.work/";
         $impresora->setJustification(Printer::JUSTIFY_CENTER);
@@ -944,7 +1091,7 @@ class PrintController extends Controller
                     
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                     $q_promo = $item->q_prom;
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
                         $q_total = 0;
@@ -976,7 +1123,7 @@ class PrintController extends Controller
                     
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                     $q_promo = $item->q_prom;
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
                         $q_total = 0;
@@ -1010,7 +1157,7 @@ class PrintController extends Controller
                 if($auxItem == 0){
                     $size_name = "";
 
-                    if($item->size_id == 9) {
+                    if($item->size_id == 9 || $item->size_id == 14) {
                         $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                         $nombre = $item->quantity.'x'.' '.$item->product_name.' '.$terms;
                     }else{
