@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
+use Carbon\Carbon;
 date_default_timezone_set('America/Lima');
 
 class PrintController extends Controller
@@ -45,7 +46,7 @@ class PrintController extends Controller
             "printer_name"=>$printer_name
         ];
 
-        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal);
+        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal,"copia");
 
         $arApp = ["ANDROID",'IOS','WEB','CALL'];
         $source_app = strtoupper($order->source_app);
@@ -63,6 +64,9 @@ class PrintController extends Controller
         $items = (object) $request->items;
         $printers = (object) $request->printer;
 
+        if($printers == []){
+            return response()->json(["message" => "Comunicarse con sistemas para verificar las impresoras"], 404);
+        }
 
         info(json_encode(["order"=>$order,"items"=>$items,"printers"=>$printers]));
 
@@ -72,15 +76,92 @@ class PrintController extends Controller
             # code...
             $key = (object) $key;
             // Inicializa la categoría si no existe
-            if (!isset($arItemsByCategory[$key->category_id])) {
-                $arItemsByCategory[$key->category_id] = [];
+            if (!isset($arItemsByCategory[$key->title])) {
+                $arItemsByCategory[$key->title] = [];
             }
             // Item ingresado para la categoria
-            $arItemsByCategory[$key->category_id][] = $key;
+            $arItemsByCategory[$key->title][] = $key;
         }
 
         info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
 
+        $printer_ip = "";
+        $printer_name = ""; 
+        $contain_category = true;
+        $printer_active = "";
+        foreach ($printers as $key ) {
+            $key = (object)$key;
+            info(json_encode(["printers_key" => $key]));
+            # code...
+            if($key->printer_status == 2 || $key->printer_status == 3){
+                if($key->printer_ip != null){
+                    $printer_ip = $key->printer_ip;
+                }else{
+                    $printer_name = $key->printer_title;
+                }
+            }
+            $printer_ip_sec = "";
+            $printer_name_sec = "";
+            if($key->printer_ip != null){
+                $printer_ip_sec = $key->printer_ip;
+            }else{
+                $printer_name_sec  = $key->printer_title;
+            }
+
+            $arPrinter = [
+                "printer_ip"=>$printer_ip_sec,
+                "printer_name"=>$printer_name_sec
+            ];
+            if(isset($key->category_id)){
+                if($key->category_id != null && $key->category_id != ""){
+                    if (isset($arItemsByCategory[$key->printer_title])) {
+                        if($key->printer_title != $printer_active){
+                            $printer_active = $key->printer_title;
+                            self::ticketCocina($request->order,$arItemsByCategory[$key->printer_title],$arPrinter);
+                        }
+                    }
+                }else{
+                    $contain_category = false;
+                }
+            }else{
+                $contain_category = false;
+            }
+        }
+
+
+        $arPrinterPrincipal = [
+            "printer_ip"=>$printer_ip,
+            "printer_name"=>$printer_name
+        ];
+
+        if(!$contain_category){
+            self::ticketCocina($request->order,$items,$arPrinterPrincipal);
+        }
+
+        if($order->paid == 1){
+            self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal,"normal");
+        }
+
+        return response()->json(["message" => "se imprimio correctamente"], 200);
+    }
+    public function ticketComandaApi(Request $request) {
+        $order = (object) $request->order;
+        $items = (object) $request->items;
+        $printers = (object) $request->printer;
+        //Desglose de categorias
+        $arItemsByCategory = [];
+        $printer_active = "";
+        foreach ($items as $key) {
+            # code...
+            $key = (object) $key;
+            // Inicializa la categoría si no existe
+            if (!isset($arItemsByCategory[$key->title])) {
+                $arItemsByCategory[$key->title] = [];
+            }
+            // Item ingresado para la categoria
+            $arItemsByCategory[$key->title][] = $key;
+        }
+        info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
         $printer_ip = "";
         $printer_name = ""; 
         $contain_category = true;
@@ -107,16 +188,22 @@ class PrintController extends Controller
                 "printer_ip"=>$printer_ip_sec,
                 "printer_name"=>$printer_name_sec
             ];
-            if($key->category_id != null || $key->category_id != ""){
-                if (isset($arItemsByCategory[$key->category_id])) {
-                    self::ticketCocina($request->order,$arItemsByCategory[$key->category_id],$arPrinter);
+            if(isset($key->category_id)){
+                if($key->category_id != null && $key->category_id != ""){
+                    if (isset($arItemsByCategory[$key->printer_title])) {
+                        if($key->printer_title != $printer_active){
+                            $printer_active = $key->printer_title;
+                            self::ticketCocina($request->order,$arItemsByCategory[$key->printer_title],$arPrinter);
+                        }
+                    }
+                }else{
+                    $contain_category = false;
                 }
             }else{
                 $contain_category = false;
             }
         }
-
-
+        
         $arPrinterPrincipal = [
             "printer_ip"=>$printer_ip,
             "printer_name"=>$printer_name
@@ -126,62 +213,7 @@ class PrintController extends Controller
             self::ticketCocina($request->order,$items,$arPrinterPrincipal);
         }
 
-        if($order->paid == 1){
-            self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$arPrinterPrincipal);
-        }
-
-        return response()->json(["message" => "se imprimio correctamente"], 200);
-    }
-    public function ticketComandaApi(Request $request) {
-        $order = (object) $request->order;
-        $items = (object) $request->items;
-        $printers = (object) $request->printer;
-        //Desglose de categorias
-        $arItemsByCategory = [];
-        foreach ($items as $key) {
-            # code...
-            $key = (object) $key;
-            // Inicializa la categoría si no existe
-            if (!isset($arItemsByCategory[$key->category_id])) {
-                $arItemsByCategory[$key->category_id] = [];
-            }
-            // Item ingresado para la categoria
-            $arItemsByCategory[$key->category_id][] = $key;
-        }
-        $printer_ip = "";
-        $printer_name = ""; 
-        $contain_category = true;
-        foreach ($printers as $key ) {
-            $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
-            # code...
-            if($key->printer_status == 2){
-                if($key->printer_ip != null){
-                    $printer_ip = $key->printer_ip;
-                }else{
-                    $printer_name = $key->printer_title;
-                }
-            }
-            $printer_ip_sec = "";
-            $printer_name_sec = "";
-            if($key->printer_ip != null){
-                $printer_ip_sec = $key->printer_ip;
-            }else{
-                $printer_name_sec  = $key->printer_title;
-            }
-
-            $arPrinter = [
-                "printer_ip"=>$printer_ip_sec,
-                "printer_name"=>$printer_name_sec
-            ];
-            if($key->category_id != null || $key->category_id != ""){
-                if (isset($arItemsByCategory[$key->category_id])) {
-                    self::ticketCocina($request->order,$arItemsByCategory[$key->category_id],$arPrinter);
-                }
-            }else{
-                $contain_category = false;
-            }
-        }
+        
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
@@ -323,13 +355,14 @@ class PrintController extends Controller
         }
     }
 
-    public static function ticketBoletadeVenta($order,$items,$store,$correlativo,$printer){
+    public static function ticketBoletadeVenta($order,$items,$store,$correlativo,$printer,$type_pri){
         
         $order = (object) $order;
         $items = (object) $items;
         $store = (object) $store;
         //$connector = new WindowsPrintConnector($nombreImpresora);
         try {
+
 
             if($printer["printer_ip"] != null){
                 $ip = $printer["printer_ip"];
@@ -340,63 +373,73 @@ class PrintController extends Controller
             }
 
             $impresora = new Printer($connector);
-            $arOtr = ["OTR","OTROS","Otro","DNI"];
-            switch ($order->fiscal_doc_type) {
-                case 'RUC':                
-                case 'FACTURA':
-                    $title_impresion = "FACTURA ELECTRÓNICA";
-                    break;
-                case 'DNI':
-                    $title_impresion = "BOLETA DE VENTA ELECTRÓNICA";
-                    break;
-                default:
-                    # code...
-                    $title_impresion = "BOLETA SIMPLE";
-                    break;
+            if($correlativo != null || $correlativo != ""){
+                $impresora->setFont(PRINTER::FONT_B);
+                $arOtr = ["OTR","OTROS","Otro","DNI"];
+                switch ($order->fiscal_doc_type) {
+                    case 'RUC':                
+                    case 'FACTURA':
+                        $title_impresion = "FACTURA ELECTRÓNICA";
+                        break;
+                    case 'DNI':
+                        $title_impresion = "BOLETA DE VENTA ELECTRÓNICA";
+                        break;
+                    default:
+                        # code...
+                        $title_impresion = "BOLETA SIMPLE";
+                        break;
+                }
+    
+                $impresora->setFont(PRINTER::FONT_B);
+                $impresora->setJustification(Printer::JUSTIFY_CENTER);
+                $impresora->setTextSize(1, 1);
+                $impresora->setEmphasis(true);
+    
+                if($correlativo == null || $correlativo == ""){
+                    $impresora->text("PRE CUENTA\n");
+                }
+    
+                if($order->company_id == "STEAKHOUSE"){
+                    $impresora->text("PATIO CAVENECIA STEAKHOUSE\n");
+                }else{
+                    $impresora->text("PASTAS Y PIZZAS\n");
+                }
+    
+                $impresora->text("$store->razon_social\n");   
+                $impresora->text("$store->nro_ruc\n");   
+                $impresora->text("$store->street_name  $store->street_number\n");   
+                $impresora->text("$store->district_old, LIMA - LIMA\n");   
+                $impresora->text("(01) 207 - 8130\n");   
+                $impresora->setFont(PRINTER::FONT_B);
+                //$impresora->text("www.pizzaraul.work\n");
+                $impresora->setEmphasis(true);
+                $impresora->text("================================================================\n");
+                $impresora->setFont(PRINTER::FONT_B);
+                //contenido source
+                $phone = $order->user_phone == null || $order->user_phone == "999999999" ? '' : $order->user_phone;
+                $impresora->text("$title_impresion\n");
+                $impresora->text("$correlativo\n");
+                $impresora->setTextSize(1, 1);
+                $impresora->text("================================================================\n");
+                $impresora->setJustification(Printer::JUSTIFY_LEFT);
+                if($type_pri == "copia"){
+                    $date =  Carbon::parse($order->created_at)->format('d/m/Y');
+                    $horaActual = Carbon::parse($order->created_at)->format('H:i:s');
+                }else{    
+                    $date =  date('d/m/Y');
+                    $horaActual = date('H:i:s');
+                }
+                Log::info(json_encode(["date"=>$date,"hora" => $horaActual]));
+                $fiscal_address = $order->fiscal_address == null || $order->fiscal_address == "" ? "" : $order->fiscal_address;
+                $impresora->text("F.Emisión: $date\n");
+                $impresora->text("H.Emisión: $horaActual\n");
+                $impresora->text("Orden de compra: $order->id\n");
+                $impresora->text("Cliente: $order->fiscal_name\n");
+                $impresora->text("Telefono: $phone\n");
+                $impresora->text("$order->fiscal_doc_type: $order->fiscal_doc_number\n");
+                $impresora->text("Dirección: $fiscal_address \n");
+                //$impresora->text("Referencia: $order->reference \n");
             }
-
-            $impresora->setFont(PRINTER::FONT_B);
-            $impresora->setJustification(Printer::JUSTIFY_CENTER);
-            $impresora->setTextSize(1, 1);
-            $impresora->setEmphasis(true);
-
-            if($correlativo == null || $correlativo == ""){
-                $impresora->text("PRE CUENTA\n");
-            }
-
-            if($order->company_id == "STEAKHOUSE"){
-                $impresora->text("PATIO CAVENECIA STEAKHOUSE\n");
-            }else{
-                $impresora->text("PASTAS Y PIZZAS\n");
-            }
-
-            $impresora->text("$store->razon_social\n");   
-            $impresora->text("$store->nro_ruc\n");   
-            $impresora->text("$store->street_name  $store->street_number\n");   
-            $impresora->text("$store->district_old, LIMA - LIMA\n");   
-            $impresora->text("(01) 207 - 8130\n");   
-            $impresora->setFont(PRINTER::FONT_B);
-            //$impresora->text("www.pizzaraul.work\n");
-            $impresora->setEmphasis(true);
-            $impresora->text("================================================================\n");
-            $impresora->setFont(PRINTER::FONT_B);
-            //contenido source
-            $phone = $order->user_phone == null || $order->user_phone == "999999999" ? '' : $order->user_phone;
-            $impresora->text("$title_impresion\n");
-            $impresora->text("$correlativo\n");
-            $impresora->setTextSize(1, 1);
-            $impresora->text("================================================================\n");
-            $impresora->setJustification(Printer::JUSTIFY_LEFT);
-            $date =  date('d/m/Y', strtotime($order->created_at));
-            $horaActual = date('H:i:s', strtotime($order->created_at));
-            $impresora->text("F.Emisión: $date\n");
-            $impresora->text("H.Emisión: $horaActual\n");
-            $impresora->text("Orden de compra: $order->id\n");
-            $impresora->text("Cliente: $order->fiscal_name\n");
-            $impresora->text("Telefono: $phone\n");
-            $impresora->text("$order->fiscal_doc_type: $order->fiscal_doc_number\n");
-            $impresora->text("Dirección: $order->street_name $order->street_number \n");
-            //$impresora->text("Referencia: $order->reference \n");
             $impresora->text("================================================================\n");
     
             $impresora->text("i     Descripción                                             s/\n");
@@ -408,7 +451,11 @@ class PrintController extends Controller
     
             foreach ($items as $item) {
                 $item = (object) $item;
-                $impresora->setFont(PRINTER::FONT_B);
+                if($correlativo != null || $correlativo != ""){
+                    $impresora->setFont(PRINTER::FONT_B);
+                }else{
+                    $impresora->setFont(PRINTER::FONT_A);
+                }
                 if(($item->item_id != $auxItem ) && ($item->promotion_id != null) ){
                     //$index ++;
                     $auxItem = $item->item_id;
@@ -466,7 +513,11 @@ class PrintController extends Controller
                     }
 
                     //$nombre_it = $item->quantity.'x'.' '.$item->product_name.' '.$item->size_name;
-                    $impresora->setFont(PRINTER::FONT_B);
+                    if($correlativo != null || $correlativo != ""){
+                        $impresora->setFont(PRINTER::FONT_B);
+                    }else{
+                        $impresora->setFont(PRINTER::FONT_A);
+                    }
                     $impresora->text("  >> $nombre_it \n");
 
                 }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
@@ -497,7 +548,11 @@ class PrintController extends Controller
                     }
 
                     //$nombre_it = $item->quantity.'x'.' '.$item->product_name.' '.$item->size_name;
-                    $impresora->setFont(PRINTER::FONT_B);
+                    if($correlativo != null || $correlativo != ""){
+                        $impresora->setFont(PRINTER::FONT_B);
+                    }else{
+                        $impresora->setFont(PRINTER::FONT_A);
+                    }
                     $impresora->text("  >> $nombre_it \n");
                 }else{
                     $auxItem = 0;
@@ -686,7 +741,15 @@ class PrintController extends Controller
                 $impresora->text("\n");
                 $impresora->setJustification(Printer::JUSTIFY_CENTER);
                 $impresora->text("Representación impresa de la \n$title_impresion\n");
-                $impresora->text("Para consultar el comprobante ingresar a:\n");
+                $impresora->text("Consulta tu boleta/factura de venta electrónica en:\n");
+                
+                $testStr ="https://ose.efact.pe/busca-tu-comprobante/consult.html";
+                $impresora->setJustification(Printer::JUSTIFY_CENTER);
+                $impresora->text("\n");
+                $impresora->text("\n");
+                $impresora -> qrCode($testStr, Printer::QR_ECLEVEL_L, 7);
+                $impresora->text("\nhttps://www.efact.pe/\n");
+                
             }else{
                 $msjTotalPagar = "TOTAL A PAGAR S/";
                 $impresora->text($msjTotalPagar);
@@ -707,6 +770,9 @@ class PrintController extends Controller
                 $third_tip = number_format($order->total_price * 0.20, 2, '.', ''); ;
 
                 $impresora->text("\n");
+                $text_mesa = "";
+                $impresora->text("Mesa: ".$order->user_table);
+                $impresora->text("\n");
                 $impresora->text("PROPINA SUGERIDA");
                 $impresora->text("\n");
                 $impresora->text("10% = ".$first_tip."\n");
@@ -717,15 +783,6 @@ class PrintController extends Controller
                 $impresora->text("RAZON SOCIAL / NOMBRE\n");
             }
 
-            if($order->company_id == "PIZZARAUL"){
-                $testStr ="https://www.pizzaraul.com/";
-                $impresora->setJustification(Printer::JUSTIFY_CENTER);
-                $impresora->text("\n");
-                $impresora->text("\n");
-                $impresora -> qrCode($testStr, Printer::QR_ECLEVEL_L, 7);
-                $impresora->text("\nhttps://www.pizzaraul.com/\n");
-            }else{
-            }
     
             $impresora->cut();
             $impresora->close();
@@ -752,6 +809,7 @@ class PrintController extends Controller
         $order = (object) $order;
         $items = (object) $items;
         $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
+        //$mesa = $order->store_table;
         $type_delivery = "";
         switch ($order->order_type) {
             case '2':
@@ -768,6 +826,9 @@ class PrintController extends Controller
                 # code...
                 $type_delivery = "DELIVERY";
                 break;
+        }
+        if($order->store_area != null){
+            $type_delivery = $order->store_area;
         }
 
         $numero = "";
@@ -867,7 +928,7 @@ class PrintController extends Controller
                 //$impresora->setFont(PRINTER::FONT_B);
                 $impresora->text("$nombre_it");
                 if($item->notes != null){
-                    $impresora->setFont(PRINTER::FONT_B);
+                    //$impresora->setFont(PRINTER::FONT_B);
                     $impresora->text("Nota: ".$item->notes);
                 }
                 $impresora->setFont(PRINTER::FONT_A);
@@ -902,7 +963,7 @@ class PrintController extends Controller
                 //$impresora->setFont(PRINTER::FONT_B);
                 $impresora->text("$nombre_it");
                 if($item->notes != null){
-                    $impresora->setFont(PRINTER::FONT_B);
+                    //$impresora->setFont(PRINTER::FONT_B);
                     $impresora->text("Nota: ".$item->notes);
                 }
                 $impresora->setFont(PRINTER::FONT_A);
@@ -941,7 +1002,7 @@ class PrintController extends Controller
                 // Alineación a la derecha
                 //$impresora->text($parteDerecha);
                 if($item->notes != null){
-                    $impresora->setFont(PRINTER::FONT_B);
+                    //$impresora->setFont(PRINTER::FONT_B);
                     $impresora->text("Nota: ".$item->notes);
                 }
                 $impresora->setFont(PRINTER::FONT_A);

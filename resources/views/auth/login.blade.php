@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Login</title>
-    @vite(['resources/css/app.css', 'resources/js/auth.js'])
+    @vite(['resources/css/app.css'])
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
@@ -41,6 +41,7 @@
                     </div>
                 </form> --}}
                 <p class="text-2xl font-bold">Manten abierto este aplicativo al momento de estar en venta o recibiendo pedidos</p>
+                <button class="w-full bg-red-500 rounded-md text-white mt-5 border-[0px]" onclick="exitAplicattion()">Cerrar Aplicativo</button>
             </div>
             <span class="text-gray-300 text-xs mt-4">Todos los derechos reservados Pizza Raul ©</span>
         </div>
@@ -48,18 +49,13 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </body>
 <script>
-    document.getElementById('auth_login_form').addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault(); // Prevenir el comportamiento por defecto
-        auth.login()
-      }
-    });
-  </script>
-  <script>
-    window.onbeforeunload = function (event) {
-        event.preventDefault();
-        event.returnValue = ''; // Para algunos navegadores
-        return '¿Estás seguro de que quieres cerrar la aplicación?';
-    };
-    </script>
+    function exitAplicattion() {
+        const userConfirmed = confirm("¿Estás seguro de que deseas cerrar la aplicación?");   
+        if (!userConfirmed) {
+            return false;
+            // Aquí puedes agregar la lógica para cerrar la aplicación
+        }
+        remote.app.exit();
+    }
+</script>
 </html>
