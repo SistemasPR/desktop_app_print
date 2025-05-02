@@ -6,7 +6,7 @@ return [
      * It is used to determine if the app needs to be updated.
      * Increment this value every time you release a new version of your app.
      */
-    'version' => env('NATIVEPHP_APP_VERSION', '1.0.0'),
+    'version' => env('NATIVEPHP_APP_VERSION', '2.0.5'),
 
     /**
      * The ID of your application. This should be a unique identifier
@@ -85,13 +85,13 @@ return [
         'providers' => [
             'github' => [
                 'driver' => 'github',
-                'repo' => env('GITHUB_REPO'),
-                'owner' => env('GITHUB_OWNER'),
-                'token' => env('GITHUB_TOKEN'),
+                'repo' => env('GITHUB_REPO','desktop_app_print'),
+                'owner' => env('GITHUB_OWNER','SistemasPR'),
+                'token' => env('GITHUB_TOKEN','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'),
                 'vPrefixedTagName' => env('GITHUB_V_PREFIXED_TAG_NAME', true),
-                'private' => env('GITHUB_PRIVATE', false),
+                'private' => env('GITHUB_PRIVATE', true),
                 'channel' => env('GITHUB_CHANNEL', 'latest'),
-                'releaseType' => env('GITHUB_RELEASE_TYPE', 'draft'),
+                'releaseType' => env('GITHUB_RELEASE_TYPE', 'release'),
             ],
 
             's3' => [

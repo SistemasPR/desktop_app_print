@@ -15,8 +15,6 @@ class PrintController extends Controller
     //
     //PRUEBA
     public function index(Request $request) {
-        
-        self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
         self::ticketCocina($request->order,$request->items,$request->printer);
         return response()->json(["message" => "HOLAAAAAAA"], 200);
     }
@@ -570,7 +568,8 @@ class PrintController extends Controller
                         $nombre = $item->quantity.'x'.' '.$item->product_name.' '.$terms.' '.$arSizeName[0];
                     }
                     $precio = number_format($item->price, 2, '.', '');
-                    $order_value = $precio * $item->quantity;
+                    $discount = $item->discount;
+                    $order_value = $precio * $item->quantity - $discount;
                     if($order_value == 0 || $order_value == 0.00){
                         $order_value = "";
                     }else{
@@ -751,6 +750,18 @@ class PrintController extends Controller
                 $impresora->text("\nhttps://www.efact.pe/\n");
                 
             }else{
+                $msjTotalDescuento = "DESCUENTO";
+                $impresora->text($msjTotalDescuento);
+                $descuento = number_format($order->discount, 2, '.', '');
+                $espaciosCentro = 0;
+                $espaciosCentro = self::CalculaEspacio($msjTotalDescuento,$descuento);
+                $parteCentro = "";
+                for ($i = 0; $i < $espaciosCentro; $i++) {
+                    $parteCentro .= " ";
+                }
+                $impresora->text($parteCentro);
+                $impresora->text("$descuento");
+                $impresora->text("\n");
                 $msjTotalPagar = "TOTAL A PAGAR S/";
                 $impresora->text($msjTotalPagar);
                 $totalPagar = number_format($order->total_price, 2, '.', '');
@@ -850,6 +861,7 @@ class PrintController extends Controller
         $impresora->setEmphasis(true);
         $uppercase = strtoupper($order->user_name);
         $impresora->text("CLIENTE: $uppercase - ".$type_delivery . $mesa);
+        $impresora->text("\n".$mesa);
         $impresora->setTextSize(1,1);
         $impresora->text("\n");
         $impresora->text("\n");
@@ -1227,7 +1239,8 @@ class PrintController extends Controller
                         $nombre = $item->quantity.'x'.' '.$item->product_name.' '.$terms.' '.$arSizeName[0];
                     }
                     $precio = number_format($item->price, 2, '.', '');
-                    $order_value = $precio * $item->quantity;
+                    $discount = $item->discount;
+                    $order_value = $precio * $item->quantity - $discount;
                     if($order_value == 0 || $order_value == 0.00){
                         $order_value = "";
                     }else{
