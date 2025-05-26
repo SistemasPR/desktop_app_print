@@ -163,6 +163,7 @@ class PrintController extends Controller
         $printer_ip = "";
         $printer_name = ""; 
         $contain_category = true;
+        $result = [];
         foreach ($printers as $key ) {
             $key = (object)$key;
             info(json_encode(["printers_key" => $key]));
@@ -191,7 +192,7 @@ class PrintController extends Controller
                     if (isset($arItemsByCategory[$key->printer_title])) {
                         if($key->printer_title != $printer_active){
                             $printer_active = $key->printer_title;
-                            self::ticketCocina($request->order,$arItemsByCategory[$key->printer_title],$arPrinter);
+                            $result = self::ticketCocina($request->order,$arItemsByCategory[$key->printer_title],$arPrinter);
                         }
                     }
                 }else{
@@ -208,11 +209,11 @@ class PrintController extends Controller
         ];
 
         if(!$contain_category){
-            self::ticketCocina($request->order,$items,$arPrinterPrincipal);
+            $result = self::ticketCocina($request->order,$items,$arPrinterPrincipal);
         }
 
         
-        return response()->json(["message" => "se imprimio correctamente"], 200);
+        return response()->json($result, 200);
     }
 
     public function ticketCierreApi(Request $request) {
@@ -397,14 +398,10 @@ class PrintController extends Controller
                     $impresora->text("PRE CUENTA\n");
                 }
     
-                if($order->company_id == "STEAKHOUSE"){
-                    $impresora->text("PATIO CAVENECIA STEAKHOUSE\n");
-                }else{
-                    $impresora->text("PASTAS Y PIZZAS\n");
-                }
+                $impresora->text("$store->efact_prn_motto\n");
     
-                $impresora->text("$store->razon_social\n");   
-                $impresora->text("$store->nro_ruc\n");   
+                $impresora->text("$store->efact_prn_title\n");   
+                $impresora->text("$store->efact_prn_ruc\n");   
                 $impresora->text("$store->street_name  $store->street_number\n");   
                 $impresora->text("$store->district_old, LIMA - LIMA\n");   
                 $impresora->text("(01) 207 - 8130\n");   
@@ -420,15 +417,14 @@ class PrintController extends Controller
                 $impresora->setTextSize(1, 1);
                 $impresora->text("================================================================\n");
                 $impresora->setJustification(Printer::JUSTIFY_LEFT);
-                if($type_pri == "copia"){
-                    $date =  Carbon::parse($order->created_at)->format('d/m/Y');
-                    $horaActual = Carbon::parse($order->created_at)->format('H:i:s');
-                }else{    
-                    $date =  date('d/m/Y');
-                    $horaActual = date('H:i:s');
-                }
+                
+                $date =  date('d/m/Y', strtotime($order->created_at));
+                $horaActual = date('H:i:s', strtotime($order->created_at));
+                $date_print =  date('d/m/Y H:i:s');
+
                 Log::info(json_encode(["date"=>$date,"hora" => $horaActual]));
                 $fiscal_address = $order->fiscal_address == null || $order->fiscal_address == "" ? "" : $order->fiscal_address;
+                $impresora->text("F.Impresión: $date_print\n");
                 $impresora->text("F.Emisión: $date\n");
                 $impresora->text("H.Emisión: $horaActual\n");
                 $impresora->text("Orden de compra: $order->id\n");
@@ -697,6 +693,8 @@ class PrintController extends Controller
                     $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
                 }
 
+                $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
+                $impresora->text("\nMesa:".$mesa);
                 $impresora->text("Forma de Pago: ".' '."$forma_pago"."\n");
                 $impresora->text("$paid\n");
                 $impresora->text("Caja: 01\n");
@@ -843,246 +841,262 @@ class PrintController extends Controller
         }
 
         $numero = "";
-        if (isset($order->store_order_id)) {
-            # code...
-            $numero = $order->store_order_id != null ? $order->store_order_id : "";
-        }
-        if($printer["printer_ip"] != null){
-            $ip = $printer["printer_ip"];
-            $port = 9100;
-            $connector = new NetworkPrintConnector($ip, $port);
-        }else{
-            $connector = new WindowsPrintConnector($printer["printer_name"]);
-        }
-        $impresora = new Printer($connector);
-        $impresora->setJustification(Printer::JUSTIFY_LEFT);
-        $impresora->setFont(PRINTER::FONT_A);
-        $impresora->setTextSize(1,1);
-        $impresora->setEmphasis(true);
-        $uppercase = strtoupper($order->user_name);
-        $impresora->text("CLIENTE: $uppercase - ".$type_delivery . $mesa);
-        $impresora->text("\n".$mesa);
-        $impresora->setTextSize(1,1);
-        $impresora->text("\n");
-        $impresora->text("\n");
-        $impresora->text("N° ORDEN: $numero". "   -  ".$order->source_app);
-        $impresora->setJustification(Printer::JUSTIFY_CENTER);
-        $impresora->setJustification(Printer::JUSTIFY_LEFT);
-        $impresora->setEmphasis(true);
-        $impresora->text("\n");
-        $date =  date('d/m/Y', strtotime($order->created_at));
-        $horaActual = date('H:i:s', strtotime($order->created_at));
-        //contenido source
-        $impresora->text("FECHA :$date HORA:$horaActual\n");
-        $impresora->setEmphasis(true);
-        $impresora->text("\n\n");
-        $impresora->setTextSize(1,1);
-        $index = 0;
-        $auxItem = 0;
-        $auxPromId = 0;
-
-        foreach ($items as $item) {
-            $item = (object) $item;
-            $impresora->setFont(PRINTER::FONT_A);
-            if(($item->item_id != $auxItem ) && ($item->promotion_id != null)){
-                $index ++;
-                $auxItem = $item->item_id;
-                $auxPromId = $item->promotion_id;
-                $nombre = mb_substr($item->promotion_name, 0, 40);
-                $nombre = strtoupper($nombre);
-                $precio = number_format($order->total_price, 2, '.', '');   
-                // Divide la línea en tres partes
-                $parteIzquierda = $nombre;// "$index >" . $nombre;
-                $parteCentro = "";
-                $parteDerecha = $precio;
-            
-                // Calcula la cantidad de espacios entre las partes
-                $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
-                
-                // Alineación a la izquierda
-                $impresora->text($parteIzquierda);
-                
-                // Alineación central (agrega espacios en blanco)
-                for ($i = 0; $i < $espaciosCentro; $i++) {
-                    $parteCentro .= " ";
-                }
-                $impresora->text($parteCentro);
-                
-                // Alineación a la derecha
-                $impresora->text("\n");
-                
-                $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
-                $q_promo = $item->q_prom;
-                if($item->size_id == 9 || $item->size_id == 14) {
-                    $arApp = ["ANDROID",'IOS','WEB'];
-                    $source_app = strtoupper($order->source_app);
-                    $q_total = 0;
-                    if(in_array($source_app,$arApp) && $q_promo != 0){
-                        $q_total = $item->quantity;
-                    }else{
-                        $q_total = $item->quantity;
-                    }
-
-                    $nombre_it = $q_total.''.' '.$item->product_name.$terms;
-                }else{
-                    $arApp = ["ANDROID",'IOS','WEB'];
-                    $source_app = strtoupper($order->source_app);
-                    $q_total = 0;
-                    if(in_array($source_app,$arApp)){
-                        $q_total = $item->quantity;
-                    }else{
-                        $q_total = $item->quantity;
-                    }
-                    $arSizeName = explode('(',$item->size_name);
-                    $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
-                }
-                $nombre_it = strtoupper($nombre_it);
-                //$impresora->setFont(PRINTER::FONT_B);
-                $impresora->text("$nombre_it");
-                if($item->notes != null){
-                    //$impresora->setFont(PRINTER::FONT_B);
-                    $impresora->text("Nota: ".$item->notes);
-                }
-                $impresora->setFont(PRINTER::FONT_A);
-
-            }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
-                $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
-                $q_promo = $item->q_prom;
-                if($item->size_id == 9 || $item->size_id == 14) {
-                    $arApp = ["ANDROID",'IOS','WEB'];
-                    $source_app = strtoupper($order->source_app);
-                    $q_total = 0;
-                    if(in_array($source_app,$arApp) && $q_promo != 0){
-                        $q_total = $item->quantity;
-                    }else{
-                        $q_total = $item->quantity;
-                    }
-
-                    $nombre_it = $q_total.''.' '.$item->product_name.$terms;
-                }else{
-                    $arApp = ["ANDROID",'IOS','WEB'];
-                    $source_app = strtoupper($order->source_app);
-                    $q_total = 0;
-                    if(in_array($source_app,$arApp) && $q_promo != 0){
-                        $q_total = $item->quantity;
-                    }else{
-                        $q_total = $item->quantity;
-                    }
-                    $arSizeName = explode('(',$item->size_name);
-                    $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
-                }
-                $nombre_it = strtoupper($nombre_it);
-                //$impresora->setFont(PRINTER::FONT_B);
-                $impresora->text("$nombre_it");
-                if($item->notes != null){
-                    //$impresora->setFont(PRINTER::FONT_B);
-                    $impresora->text("Nota: ".$item->notes);
-                }
-                $impresora->setFont(PRINTER::FONT_A);
-            }else{
-                $auxItem = 0;
-            }
-
-            if($auxItem == 0){
-                $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
-                if($item->size_id == 9 || $item->size_id == 14) {
-                    $nombre = $item->quantity.''.' '.$item->product_name.$terms;
-                }else{
-                    $arSizeName = explode('(',$item->size_name);
-                    $nombre = $item->quantity.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
-                }
-                $nombre = strtoupper($nombre);
-                $precio = number_format($item->price, 2, '.', '');
-                $index ++;
-                // Divide la línea en tres partes
-                $parteIzquierda = $nombre;//"$index >" . $nombre;
-                $parteCentro = "";
-                $parteDerecha = $precio;
-            
-                // Calcula la cantidad de espacios entre las partes
-                $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
-                
-                // Alineación a la izquierda
-                $impresora->text($parteIzquierda);
-                
-                // Alineación central (agrega espacios en blanco)
-                for ($i = 0; $i < $espaciosCentro; $i++) {
-                    $parteCentro .= " ";
-                }
-                $impresora->text($parteCentro);
-                
-                // Alineación a la derecha
-                //$impresora->text($parteDerecha);
-                if($item->notes != null){
-                    //$impresora->setFont(PRINTER::FONT_B);
-                    $impresora->text("Nota: ".$item->notes);
-                }
-                $impresora->setFont(PRINTER::FONT_A);
-                $impresora->text("\n");
-            }
-        
-
-            
-            
-        }
-        $impresora->setTextSize(1,1);
-        $impresora->setFont(PRINTER::FONT_A);
-        $impresora->text("\n");
-        $impresora->text("OBS: \n");
-        $impresora->text("$order->observation\n");
-        
-        $forma_pago = "";
-        $payment_method = strtoupper($order->payment_method);
-        $order->total_price = number_format($order->total_price, 2, '.', '');   
-        if($payment_method != null){
-            if($payment_method == "CASH"){
-                if($order->payment_received != null && $order->payment_received != ""){
-                    if($order->payment_received == "Pago exacto"){
-                        $forma_pago = "SOLES $order->total_price";
-                    }else{
-                        $vuelto = floatval($order->payment_received) - floatval($order->total_price);
-                        $vuelto = number_format($vuelto, 2, '.', '');
-                        $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
-                    }
-                }else{
-                    $forma_pago = "SOLES $order->total_price";
-                }
-            }elseif($payment_method == "CARD"){
-                if($order->payment_mp != null && $order->payment_mp != ""){
-                    $forma_pago = "Tarjeta - $order->payment_mp - s/$order->total_price";
-                }else{
-                    $forma_pago = "Tarjeta - s/$order->total_price";
-                }
-            }elseif($payment_method == "PYA"){
-                    $forma_pago = "PEDIDOSYA! - s/$order->total_price";
-            }elseif($payment_method == "YAPE"){
-                    $forma_pago = "YAPE - s/ $order->total_price";
-            }else{
-                $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
-                $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
-            }
-        }
-        
-        $impresora->text("------------------------------------------------\n");
-        $impresora->text("FORMA DE PAGO".' '."$forma_pago"."\n");
-        $is_payment = $order->paid == 1 ? 'PAGADO' : 'POR PAGAR';
-        $impresora->text("$is_payment\n");
         try {
-            $impresora->alarm(3,100); // Intentar activar la alarma
+            //code...
+            if (isset($order->store_order_id)) {
+            # code...
+                $numero = $order->store_order_id != null ? $order->store_order_id : "";
+            }
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
+            $impresora = new Printer($connector);
+            $impresora->setJustification(Printer::JUSTIFY_LEFT);
+            $impresora->setFont(PRINTER::FONT_A);
+            $impresora->setTextSize(1,1);
+            $impresora->setEmphasis(true);
+            $uppercase = strtoupper($order->user_name);
+            $impresora->text("CLIENTE: $uppercase - ".$type_delivery);
+            $impresora->text("\n".$mesa);
+            $impresora->setTextSize(1,1);
+            $impresora->text("\n");
+            $impresora->text("\n");
+            $impresora->text("N° ORDEN: $numero". "   -  ".$order->source_app);
+            $impresora->setJustification(Printer::JUSTIFY_CENTER);
+            $impresora->setJustification(Printer::JUSTIFY_LEFT);
+            $impresora->setEmphasis(true);
+            $impresora->text("\n");
+            $date =  date('d/m/Y', strtotime($order->created_at));
+            $horaActual = date('H:i:s', strtotime($order->created_at));
+            //contenido source
+            $impresora->text("FECHA :$date HORA:$horaActual\n");
+            $impresora->setEmphasis(true);
+            $impresora->text("\n\n");
+            $impresora->setTextSize(1,1);
+            $index = 0;
+            $auxItem = 0;
+            $auxPromId = 0;
+
+            foreach ($items as $item) {
+                $item = (object) $item;
+                $impresora->setFont(PRINTER::FONT_A);
+                if(($item->item_id != $auxItem ) && ($item->promotion_id != null)){
+                    $index ++;
+                    $auxItem = $item->item_id;
+                    $auxPromId = $item->promotion_id;
+                    $nombre = mb_substr($item->promotion_name, 0, 40);
+                    $nombre = strtoupper($nombre);
+                    $precio = number_format($order->total_price, 2, '.', '');   
+                    // Divide la línea en tres partes
+                    $parteIzquierda = $nombre;// "$index >" . $nombre;
+                    $parteCentro = "";
+                    $parteDerecha = $precio;
+                
+                    // Calcula la cantidad de espacios entre las partes
+                    $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
+                    
+                    // Alineación a la izquierda
+                    $impresora->text($parteIzquierda);
+                    
+                    // Alineación central (agrega espacios en blanco)
+                    for ($i = 0; $i < $espaciosCentro; $i++) {
+                        $parteCentro .= " ";
+                    }
+                    $impresora->text($parteCentro);
+                    
+                    // Alineación a la derecha
+                    $impresora->text("\n");
+                    
+                    $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
+                    $q_promo = $item->q_prom;
+                    if($item->size_id == 9 || $item->size_id == 14) {
+                        $arApp = ["ANDROID",'IOS','WEB'];
+                        $source_app = strtoupper($order->source_app);
+                        $q_total = 0;
+                        if(in_array($source_app,$arApp) && $q_promo != 0){
+                            $q_total = $item->quantity;
+                        }else{
+                            $q_total = $item->quantity;
+                        }
+
+                        $nombre_it = $q_total.''.' '.$item->product_name.$terms;
+                    }else{
+                        $arApp = ["ANDROID",'IOS','WEB'];
+                        $source_app = strtoupper($order->source_app);
+                        $q_total = 0;
+                        if(in_array($source_app,$arApp)){
+                            $q_total = $item->quantity;
+                        }else{
+                            $q_total = $item->quantity;
+                        }
+                        $arSizeName = explode('(',$item->size_name);
+                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
+                    }
+                    $nombre_it = strtoupper($nombre_it);
+                    //$impresora->setFont(PRINTER::FONT_B);
+                    $impresora->text("$nombre_it");
+                    if($item->notes != null){
+                        //$impresora->setFont(PRINTER::FONT_B);
+                        $impresora->text("Nota: ".$item->notes);
+                    }
+                    $impresora->setFont(PRINTER::FONT_A);
+
+                }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
+                    $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
+                    $q_promo = $item->q_prom;
+                    if($item->size_id == 9 || $item->size_id == 14) {
+                        $arApp = ["ANDROID",'IOS','WEB'];
+                        $source_app = strtoupper($order->source_app);
+                        $q_total = 0;
+                        if(in_array($source_app,$arApp) && $q_promo != 0){
+                            $q_total = $item->quantity;
+                        }else{
+                            $q_total = $item->quantity;
+                        }
+
+                        $nombre_it = $q_total.''.' '.$item->product_name.$terms;
+                    }else{
+                        $arApp = ["ANDROID",'IOS','WEB'];
+                        $source_app = strtoupper($order->source_app);
+                        $q_total = 0;
+                        if(in_array($source_app,$arApp) && $q_promo != 0){
+                            $q_total = $item->quantity;
+                        }else{
+                            $q_total = $item->quantity;
+                        }
+                        $arSizeName = explode('(',$item->size_name);
+                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
+                    }
+                    $nombre_it = strtoupper($nombre_it);
+                    //$impresora->setFont(PRINTER::FONT_B);
+                    $impresora->text("$nombre_it");
+                    if($item->notes != null){
+                        //$impresora->setFont(PRINTER::FONT_B);
+                        $impresora->text("Nota: ".$item->notes);
+                    }
+                    $impresora->setFont(PRINTER::FONT_A);
+                }else{
+                    $auxItem = 0;
+                }
+
+                if($auxItem == 0){
+                    $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
+                    if($item->size_id == 9 || $item->size_id == 14) {
+                        $nombre = $item->quantity.''.' '.$item->product_name.$terms;
+                    }else{
+                        $arSizeName = explode('(',$item->size_name);
+                        $nombre = $item->quantity.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
+                    }
+                    $nombre = strtoupper($nombre);
+                    $precio = number_format($item->price, 2, '.', '');
+                    $index ++;
+                    // Divide la línea en tres partes
+                    $parteIzquierda = $nombre;//"$index >" . $nombre;
+                    $parteCentro = "";
+                    $parteDerecha = $precio;
+                
+                    // Calcula la cantidad de espacios entre las partes
+                    $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
+                    
+                    // Alineación a la izquierda
+                    $impresora->text($parteIzquierda);
+                    
+                    // Alineación central (agrega espacios en blanco)
+                    for ($i = 0; $i < $espaciosCentro; $i++) {
+                        $parteCentro .= " ";
+                    }
+                    $impresora->text($parteCentro);
+                    
+                    // Alineación a la derecha
+                    //$impresora->text($parteDerecha);
+                    if($item->notes != null){
+                        //$impresora->setFont(PRINTER::FONT_B);
+                        $impresora->text("Nota: ".$item->notes);
+                    }
+                    $impresora->setFont(PRINTER::FONT_A);
+                    $impresora->text("\n");
+                }
+            
+
+                
+                
+            }
+            $impresora->setTextSize(1,1);
+            $impresora->setFont(PRINTER::FONT_A);
+            $impresora->text("\n");
+            $impresora->text("OBS: \n");
+            $impresora->text("$order->observation\n");
+            
+            $forma_pago = "";
+            $payment_method = strtoupper($order->payment_method);
+            $order->total_price = number_format($order->total_price, 2, '.', '');   
+            if($payment_method != null){
+                if($payment_method == "CASH"){
+                    if($order->payment_received != null && $order->payment_received != ""){
+                        if($order->payment_received == "Pago exacto"){
+                            $forma_pago = "SOLES $order->total_price";
+                        }else{
+                            $vuelto = floatval($order->payment_received) - floatval($order->total_price);
+                            $vuelto = number_format($vuelto, 2, '.', '');
+                            $forma_pago = "SOLES $order->payment_received VUELTO:$vuelto";
+                        }
+                    }else{
+                        $forma_pago = "SOLES $order->total_price";
+                    }
+                }elseif($payment_method == "CARD"){
+                    if($order->payment_mp != null && $order->payment_mp != ""){
+                        $forma_pago = "Tarjeta - $order->payment_mp - s/$order->total_price";
+                    }else{
+                        $forma_pago = "Tarjeta - s/$order->total_price";
+                    }
+                }elseif($payment_method == "PYA"){
+                        $forma_pago = "PEDIDOSYA! - s/$order->total_price";
+                }elseif($payment_method == "YAPE"){
+                        $forma_pago = "YAPE - s/ $order->total_price";
+                }else{
+                    $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
+                    $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
+                }
+            }
+            
+            $impresora->text("------------------------------------------------\n");
+            $impresora->text("FORMA DE PAGO".' '."$forma_pago"."\n");
+            $is_payment = $order->paid == 1 ? 'PAGADO' : 'POR PAGAR';
+            $impresora->text("$is_payment\n");
+            try {
+                //$impresora->alarm(3,100); // Intentar activar la alarma
+            } catch (\Throwable $th) {
+                // Si no es compatible, simplemente ignorar el error
+                $impresora->getPrintConnector()->write("\x07");
+                //error_log("La impresora no admite alarm(). Continuando sin alarmas.");
+            }
+
+            //$testStr ="https://www.pizzaraul.work/";
+            $impresora->setJustification(Printer::JUSTIFY_CENTER);
+            $impresora->text("\n");
+            $impresora->feed(2);
+            $impresora->cut();
+            $impresora->close();
+            $data = [
+                "message" => "IMPRESO CORRECTAMENTE"
+            ];
         } catch (\Throwable $th) {
-            // Si no es compatible, simplemente ignorar el error
-            $impresora->getPrintConnector()->write("\x07");
-            //error_log("La impresora no admite alarm(). Continuando sin alarmas.");
+            //throw $th;
+            $errorMessage = $th->getMessage();
+            // Capturar el archivo donde ocurrió el error
+            $errorFile = $th->getFile();
+            // Capturar la línea donde ocurrió el error
+            $errorLine = $th->getLine();
+            $data = [
+                "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
+            ];
         }
-
-        //$testStr ="https://www.pizzaraul.work/";
-        $impresora->setJustification(Printer::JUSTIFY_CENTER);
-        $impresora->text("\n");
-        $impresora->feed(2);
-        $impresora->cut();
-        $impresora->close();
+        return $data;
     }
-
     public function ticketDeliveryDriver($order,$items,$store,$printer) {
         //$nombreImpresora = "$printer";
         $order = (object) $order;
