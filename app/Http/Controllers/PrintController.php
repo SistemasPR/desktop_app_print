@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Log;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 use Carbon\Carbon;
+use DateTime;
+use DateTimeZone;
+use Illuminate\Support\Facades\Http;
+
 date_default_timezone_set('America/Lima');
 
 class PrintController extends Controller
@@ -29,7 +33,7 @@ class PrintController extends Controller
         $result = [];
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -53,7 +57,7 @@ class PrintController extends Controller
             //self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
              $result[] = self::ticketDeliveryDriver($request->order,$request->items,$request->store,$arPrinterPrincipal);
         }
-        return response()->json(["message" => "se imprimio correctamente"], 200);
+        return response()->json($result, 200);
     }
 
 
@@ -67,7 +71,7 @@ class PrintController extends Controller
             return response()->json(["message" => "Comunicarse con sistemas para verificar las impresoras"], 404);
         }
 
-        info(json_encode(["order"=>$order,"items"=>$items,"printers"=>$printers]));
+        //info(json_encode(["order"=>$order,"items"=>$items,"printers"=>$printers]));
 
         //Desglose de categorias
         $arItemsByCategory = [];
@@ -82,7 +86,7 @@ class PrintController extends Controller
             $arItemsByCategory[$key->title][] = $key;
         }
 
-        info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
+        //info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
 
         $printer_ip = "";
         $printer_name = ""; 
@@ -90,7 +94,7 @@ class PrintController extends Controller
         $printer_active = "";
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -160,14 +164,14 @@ class PrintController extends Controller
             // Item ingresado para la categoria
             $arItemsByCategory[$key->title][] = $key;
         }
-        info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
+        //info(json_encode(["arItemsByCategory" => $arItemsByCategory]));
         $printer_ip = "";
         $printer_name = ""; 
         $contain_category = true;
         $result = [];
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -218,14 +222,14 @@ class PrintController extends Controller
     }
 
     public function ticketCierreApi(Request $request) {
-        //info(json_encode($request->all()));
+        ////info(json_encode($request->all()));
         
         $printers = (object) $request->printer;
         $printer_ip = "";
         $printer_name = ""; 
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -246,13 +250,13 @@ class PrintController extends Controller
     }
 
     public function ticketPaloteoApi(Request $request) {
-        //info(json_encode($request->all()));
+        ////info(json_encode($request->all()));
         $printers = (object) $request->printer;
         $printer_ip = "";
         $printer_name = ""; 
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -273,13 +277,13 @@ class PrintController extends Controller
     }
 
     public function ticketInventarioApi(Request $request) {
-        //info(json_encode($request->all()));
+        ////info(json_encode($request->all()));
         $printers = (object) $request->printer;
         $printer_ip = "";
         $printer_name = ""; 
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -304,7 +308,7 @@ class PrintController extends Controller
         $printer_name = ""; 
         foreach ($printers as $key ) {
             $key = (object)$key;
-            info(json_encode(["printers_key" => $key]));
+            //info(json_encode(["printers_key" => $key]));
             # code...
             if($key->printer_status == 2 || $key->printer_status == 3){
                 if($key->printer_ip != null){
@@ -323,7 +327,255 @@ class PrintController extends Controller
         return response()->json(["message" => "se imprimio correctamente"], 200);
     }
 
+    /***** */
 
+    public function ticketTestingApiV2 (Request $request){
+        $printer = $request->printer;
+        $store = $request->store;
+        
+        $arPrinter = [
+            "printer_id" => $printer->printer_id,
+            "printer_ip" => $printer->ip ?? null,
+            "printer_name" => $printer->name
+        ];
+        $result = self::testingPrinterConnectionV2($store,$arPrinter);
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "COMANDA",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "COMANDA",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+        return response()->json($show, 200);
+    }
+
+    public function ticketComandaApiV2(Request $request) {
+        $printer = (object) $request->printer ;
+        $items = $request->items;
+        $order = $request->order;
+
+        $arPrinter = [
+            "printer_id" => $printer->printer_id,
+            "printer_ip" => $printer->ip ?? null,
+            "printer_name" => $printer->name
+        ];
+
+        $result = self::ticketCocina($order,$items,$arPrinter);
+
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "COMANDA",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "COMANDA",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+        return response()->json($show, 200);
+
+    }
+
+    public function ticketBoletadeVentaApiV2(Request $request) {
+        $printer = (object) $request->printers ;
+        $items = $request->items;
+        $order =  (object) $request->order;
+
+        $arPrinter = [
+            "printer_id" => $printer->printer_id,
+            "printer_ip" => $printer->ip ?? null,
+            "printer_name" => $printer->name
+        ];
+        $result = self::ticketBoletadeVenta($order,$items,$request->storecontent,$request->correlativo,$arPrinter,"normal");
+        
+        $arApp = ["ANDROID",'IOS','WEB','CALL'];
+        $message_del ="";
+        $tag_aler ="";
+        $source_app = strtoupper($order->source_app);
+        if(in_array($source_app,$arApp)){
+            //self::ticketBoletadeVenta($request->order,$request->items,$request->store,$request->correlativo,$request->printer);
+            self::ticketDeliveryDriver($order,$items,$request->storecontent,$arPrinter);
+            $message_del = " Incluye delivery";
+            $tag_aler = " con delivery";
+        }
+
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "BOLETA",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"].$message_del,
+                "tag_alert" => "BOLETA".$tag_aler,
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+        return response()->json($show, 200);
+    }
+
+    public function ticketCierreApiV2(Request $request) {
+        ////info(json_encode($request->all()));
+        
+        $printers = (object) $request->printer;
+
+
+        $arPrinterPrincipal = [
+            "printer_ip" => $printers->printer_ip ?? null,
+            "printer_name" => $printers->printer_title
+        ];
+
+        $result = self::ticketCierreCaja($request->store,$request->apertura_s,$request->suma_S,
+        $request->ventas,$request->transactions_S,$request->usuario,$request->store_balance,$request->mercaderia,
+        $arPrinterPrincipal);
+        
+        
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "CIERRE",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "CIERRE",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+
+        return response()->json($show, 200);
+    }
+    
+    public function ticketPaloteoApiV2(Request $request) {
+        ////info(json_encode($request->all()));
+        $printers = (object) $request->printer;
+
+        $arPrinterPrincipal = [
+            "printer_id" => $printers->printer_id,
+            "printer_ip" => $printers->printer_ip ?? null,
+            "printer_name" => $printers->printer_title
+        ];
+
+        $result = self::ticketPaloteo($request->store,$request->data,$arPrinterPrincipal);
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "PALOTEO",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "PALOTEO",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+
+        return response()->json($show, 200);
+    }
+
+    
+    public function ticketInventarioApiV2(Request $request) {
+        ////info(json_encode($request->all()));
+        $printers = (object) $request->printer;
+
+        $arPrinterPrincipal = [
+            "printer_id" => $printers->printer_id,
+            "printer_ip" => $printers->printer_ip ?? null,
+            "printer_name" => $printers->printer_title
+        ];
+        $result = self::ticketInventario($request->store,$request->data,$arPrinterPrincipal);
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "INVENTARIO",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "INVENTARIO",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+
+        return response()->json($show, 200);
+    }
+
+    public function ticketMovimientoApiV2(Request $request) {
+        if($request->printer == null){
+            
+            $show = [
+                "message_alert" => "La impresora no fue enviada por notificacion",
+                "tag_alert" => "MOVIMIENTO",
+                "type" => "error",
+                "status" => "error"
+            ];
+            return response()->json($show, 200);
+        }
+        $printers = (object) $request->printer;
+        $arPrinterPrincipal = [
+            "printer_id" => $printers->printer_id,
+            "printer_ip" => $printers->printer_ip == "" || null ? null : $printers->printer_ip,
+            "printer_name" => $printers->printer_title
+        ];
+        $result = self::ticketMovimiento($request->movimiento,$request->store,$arPrinterPrincipal);
+        $show = [];
+        if($result["status"]=="error"){
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "MOVIMIENTO",
+                "type" => "error",
+                "status" => "error"
+            ];
+        }else{
+            $show = [
+                "message_alert" => $result["message"],
+                "tag_alert" => "MOVIMIENTO",
+                "type" => "success",
+                "status" => "correct"
+            ];
+        }
+
+
+        return response()->json($show, 200);
+    }
+    /***** */
 
     public function testingPrinterConnection($printer) {
         try {
@@ -355,7 +607,7 @@ class PrintController extends Controller
             $data = [
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -425,11 +677,16 @@ class PrintController extends Controller
                 $impresora->text("================================================================\n");
                 $impresora->setJustification(Printer::JUSTIFY_LEFT);
                 
-                $date =  date('d/m/Y', strtotime($order->created_at));
-                $horaActual = date('H:i:s', strtotime($order->created_at));
-                $date_print =  date('d/m/Y H:i:s');
+                $dateP = new DateTime($order->created_at);
+                $dateP->setTimezone(new DateTimeZone("America/Lima"));
+                $date = $dateP->format("d/m/Y");
+                $horaActual = $dateP->format("H:i:s");
+                
+                $dateP2 = new DateTime(date("Y-m-d H:i:s"));
+                $dateP2->setTimezone(new DateTimeZone("America/Lima"));
+                $date_print =  $dateP2->format('d/m/Y H:i:s');
 
-                Log::info(json_encode(["date"=>$date,"hora" => $horaActual]));
+                //Log:://info(json_encode(["date"=>$date,"hora" => $horaActual]));
                 $fiscal_address = $order->fiscal_address == null || $order->fiscal_address == "" ? "" : $order->fiscal_address;
                 $impresora->text("F.Impresión: $date_print\n");
                 $impresora->text("F.Emisión: $date\n");
@@ -437,7 +694,7 @@ class PrintController extends Controller
                 $impresora->text("Orden de compra: $order->id\n");
                 $impresora->text("Cliente: $order->fiscal_name\n");
                 $impresora->text("Telefono: $phone\n");
-                $impresora->text("C.E: $order->fiscal_doc_number\n");
+                $impresora->text("$order->fiscal_doc_type: $order->fiscal_doc_number\n");
                 $impresora->text("Dirección: $fiscal_address \n");
                 //$impresora->text("Referencia: $order->reference \n");
             }
@@ -667,7 +924,7 @@ class PrintController extends Controller
         
                 $impresora->setFont(PRINTER::FONT_B);
                 $impresora->text("================================================================\n");;
-                $impresora->text("Información Adicional\n");
+                $impresora->text("//información Adicional\n");
                 $impresora->text("N° de pedido de tienda: $order->store_order_id \n"); //
 
                 $forma_pago = "";
@@ -696,12 +953,15 @@ class PrintController extends Controller
                 }elseif($payment_method == "PYA"){
                     $forma_pago = "PEDIDOSYA! - s/$totalPagar";
                 }else{
-                    $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
-                    $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
+                    $payment_with_cash = number_format($order->payment_with_cash, 2, '.', ''); 
+                    $payment_with_card = number_format($order->payment_with_card, 2, '.', ''); 
+                    $change =  ($payment_with_cash + $payment_with_card) - $order->total_price;
+                    $change = number_format($change, 2, '.', ''); 
+                    $forma_pago = "\nMIXTO - E: s/$payment_with_cash - T: s/$payment_with_card ($order->payment_mp) - V: s/$change";
                 }
 
                 $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
-                $impresora->text("\nMesa:".$mesa);
+                $impresora->text("Mesa:".$mesa."\n");
                 $impresora->text("Forma de Pago: ".' '."$forma_pago"."\n");
                 $impresora->text("$paid\n");
                 $impresora->text("Caja: 01\n");
@@ -802,7 +1062,41 @@ class PrintController extends Controller
     
             $impresora->cut();
             $impresora->close();
-            return ["message" => "IMPRESION DE TICKET DE VENTA"];
+            // $bussiness_date = $dateP->format("Y-m-d H:i:s");
+            // $send_pos = 
+            // [
+            //     "store_id" => $order->store_id,
+            //     "bussiness_date" => $bussiness_date,
+            //     "printer_id" =>,
+            //     "printer_ip" => $printer["printer_ip"],
+            //     "printer_name" => $printer["printer_name"],
+            //     "content_type" => "BOLETA",
+            //     "preparation_area" =>null,
+            //     "service_channel" =>,
+            //     "order_id" =>,
+            //     "status" =>,
+            //     "details_json" =>,
+            //     "error_message" =>,
+
+            // ];
+            
+            $detail = [
+                "content_type" => "BOLETA",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Boleta impresa correctamente","id"=>$order->id] 
+            ];
+            $sendPos = [
+                "store_id" => $order->store_id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            return ["message" => "IMPRESION DE TICKET DE VENTA","status" => "correct"];
     
         } catch (\Throwable $th) {
             //throw $th;
@@ -813,9 +1107,25 @@ class PrintController extends Controller
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
             $data = [
-                "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
+                "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}","status" => "error"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "BOLETA",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en la línea {$errorLine}","id"=>$order->id] 
+            ];
+            $sendPos = [
+                "store_id" => $order->store_id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -825,31 +1135,31 @@ class PrintController extends Controller
         $order = (object) $order;
         $items = (object) $items;
         $data = [];
-        $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
-        //$mesa = $order->store_table;
-        $type_delivery = "";
-        switch ($order->order_type) {
-            case '2':
-                # code...
-                $type_delivery = "RECOJO";
-                break;
-            
-            case '3':
-                # code...
-                $type_delivery = "SALON";
-                break;
-            
-            default:
-                # code...
-                $type_delivery = "DELIVERY";
-                break;
-        }
-        if($order->store_area != null){
-            $type_delivery = $order->store_area;
-        }
-
-        $numero = "";
         try {
+            $mesa = $order->user_table == null ? "" : " -- " . $order->user_table;
+            //$mesa = $order->store_table;
+            $type_delivery = "";
+            switch ($order->order_type) {
+                case '2':
+                    # code...
+                    $type_delivery = "RECOJO";
+                    break;
+                
+                case '3':
+                    # code...
+                    $type_delivery = "SALON";
+                    break;
+                
+                default:
+                    # code...
+                    $type_delivery = "DELIVERY";
+                    break;
+            }
+            if($order->store_area != null){
+                $type_delivery = $order->store_area;
+            }
+
+            $numero = "";
             //code...
             if (isset($order->store_order_id)) {
             # code...
@@ -865,10 +1175,12 @@ class PrintController extends Controller
             $impresora = new Printer($connector);
             $impresora->setJustification(Printer::JUSTIFY_LEFT);
             $impresora->setFont(PRINTER::FONT_A);
-            $impresora->setTextSize(1,1);
+            $impresora->setTextSize(2,2);
             $impresora->setEmphasis(true);
             $uppercase = strtoupper($order->user_name);
-            $impresora->text("CLIENTE: $uppercase - ".$type_delivery);
+            $impresora->text($type_delivery);
+            $impresora->setTextSize(1,1);
+            $impresora->text("\n"."CLIENTE: $uppercase");
             $impresora->text("\n".$mesa);
             $impresora->setTextSize(1,1);
             $impresora->text("\n");
@@ -878,8 +1190,10 @@ class PrintController extends Controller
             $impresora->setJustification(Printer::JUSTIFY_LEFT);
             $impresora->setEmphasis(true);
             $impresora->text("\n");
-            $date =  date('d/m/Y', strtotime($order->created_at));
-            $horaActual = date('H:i:s', strtotime($order->created_at));
+            $dateP = new DateTime($order->created_at);
+            $dateP->setTimezone(new DateTimeZone("America/Lima"));
+            $date = $dateP->format("d/m/Y");
+            $horaActual = $dateP->format("H:i:s");
             //contenido source
             $impresora->text("FECHA :$date HORA:$horaActual\n");
             $impresora->setEmphasis(true);
@@ -889,38 +1203,37 @@ class PrintController extends Controller
             $auxItem = 0;
             $auxPromId = 0;
 
+            $aux_name = "";
             foreach ($items as $item) {
                 $item = (object) $item;
                 $impresora->setFont(PRINTER::FONT_A);
-                if(($item->item_id != $auxItem ) && ($item->promotion_id != null)){
+                $impresora->setEmphasis(true);
+                if(($item->item_id != $auxItem )){
                     $index ++;
                     $auxItem = $item->item_id;
-                    $auxPromId = $item->promotion_id;
-                    $nombre = mb_substr($item->promotion_name, 0, 40);
-                    $nombre = strtoupper($nombre);
-                    $precio = number_format($order->total_price, 2, '.', '');   
-                    // Divide la línea en tres partes
-                    $parteIzquierda = $nombre;// "$index >" . $nombre;
-                    $parteCentro = "";
-                    $parteDerecha = $precio;
-                
-                    // Calcula la cantidad de espacios entre las partes
-                    $espaciosCentro = self::CalculaEspacio($parteIzquierda,$parteDerecha);
-                    
-                    // Alineación a la izquierda
-                    $impresora->text($parteIzquierda);
-                    
-                    // Alineación central (agrega espacios en blanco)
-                    for ($i = 0; $i < $espaciosCentro; $i++) {
-                        $parteCentro .= " ";
+                    $auxPromId = $item->promotion_id ?? null;
+                    if($auxPromId != null){
+                        $aux_name = str_replace(" ","",$item->promotion_name);
+                        $aux_name = strtolower($aux_name);
+                        $nombre = mb_substr($item->promotion_name, 0, 40);
+                        $nombre = strtoupper($nombre);
+                    }else{
+                        $aux_name = str_replace(" ","",$item->product_name);
+                        $aux_name = strtolower($aux_name);
+                        $nombre = mb_substr($item->product_name, 0, 40);
+                        $nombre = strtoupper($nombre);
                     }
-                    $impresora->text($parteCentro);
+                    $precio = "";//number_format($order->total_price, 2, '.', '');   
+                    $contenido = "\n".$nombre." ".$precio."\n";
+                    $impresora->text("$contenido");
                     
                     // Alineación a la derecha
-                    $impresora->text("\n");
+                    //$impresora->text("\n");
                     
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                     $q_promo = $item->q_prom;
+                    $paux_name = str_replace(" ","",$item->product_name);
+                    $paux_name = strtolower($paux_name);
                     if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
@@ -931,7 +1244,12 @@ class PrintController extends Controller
                             $q_total = $item->quantity;
                         }
 
-                        $nombre_it = $q_total.''.' '.$item->product_name.$terms."\n";
+                        if($paux_name == $aux_name){
+                            $nombre_it = $q_total.''.$terms;
+                        }else{
+                            $nombre_it = $q_total.''.' '.$item->product_name.$terms;
+                        }
+
                     }else{
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
@@ -942,20 +1260,23 @@ class PrintController extends Controller
                             $q_total = $item->quantity;
                         }
                         $arSizeName = explode('(',$item->size_name);
-                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms."\n";
+                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
                     }
                     $nombre_it = strtoupper($nombre_it);
                     //$impresora->setFont(PRINTER::FONT_B);
                     $impresora->text("$nombre_it");
                     if($item->notes != null){
                         //$impresora->setFont(PRINTER::FONT_B);
-                        $impresora->text("Nota: ".$item->notes);
+                        $impresora->text("\n"."Nota: ".$item->notes."\n");
                     }
                     $impresora->setFont(PRINTER::FONT_A);
 
-                }elseif($item->promotion_id == $auxPromId && $item->promotion_id != null){
+                }elseif($item->item_id == $auxItem){
+                    $impresora->setEmphasis(false);
                     $terms = $item->product_terms != null ? ' ('.$item->product_terms.')' : '';
                     $q_promo = $item->q_prom;
+                    $paux_name = str_replace(" ","",$item->product_name);
+                    $paux_name = strtolower($paux_name);
                     if($item->size_id == 9 || $item->size_id == 14) {
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
@@ -966,7 +1287,11 @@ class PrintController extends Controller
                             $q_total = $item->quantity;
                         }
 
-                        $nombre_it = $q_total.''.' '.$item->product_name.$terms."\n";
+                        if($paux_name == $aux_name){
+                            $nombre_it = $q_total.''.$terms;
+                        }else{
+                            $nombre_it = $q_total.''.' '.$item->product_name.$terms;
+                        }
                     }else{
                         $arApp = ["ANDROID",'IOS','WEB'];
                         $source_app = strtoupper($order->source_app);
@@ -977,14 +1302,14 @@ class PrintController extends Controller
                             $q_total = $item->quantity;
                         }
                         $arSizeName = explode('(',$item->size_name);
-                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms."\n";
+                        $nombre_it = $q_total.''.' '.$item->product_name.' '.$arSizeName[0].$terms;
                     }
                     $nombre_it = strtoupper($nombre_it);
                     //$impresora->setFont(PRINTER::FONT_B);
                     $impresora->text("$nombre_it");
                     if($item->notes != null){
                         //$impresora->setFont(PRINTER::FONT_B);
-                        $impresora->text("Nota: ".$item->notes);
+                        $impresora->text("\n"."Nota: ".$item->notes);
                     }
                     $impresora->setFont(PRINTER::FONT_A);
                 }else{
@@ -1023,13 +1348,13 @@ class PrintController extends Controller
                     //$impresora->text($parteDerecha);
                     if($item->notes != null){
                         //$impresora->setFont(PRINTER::FONT_B);
-                        $impresora->text("Nota: ".$item->notes);
+                        $impresora->text("\n"."Nota: ".$item->notes."\n");
                     }
                     $impresora->setFont(PRINTER::FONT_A);
-                    $impresora->text("\n");
                 }
             
-
+                    
+                $impresora->text("\n");
                 
                 
             }
@@ -1066,8 +1391,11 @@ class PrintController extends Controller
                 }elseif($payment_method == "YAPE"){
                         $forma_pago = "YAPE - s/ $order->total_price";
                 }else{
-                    $change =  ($order->payment_with_cash + $order->payment_with_card) - $order->total_price;
-                    $forma_pago = "MIXTO - E: s/$order->payment_with_cash - T: s/$order->payment_with_card ($order->payment_mp) - V: s/$change";
+                    $payment_with_cash = number_format($order->payment_with_cash, 2, '.', ''); 
+                    $payment_with_card = number_format($order->payment_with_card, 2, '.', ''); 
+                    $change =  ($payment_with_cash + $payment_with_card) - $order->total_price;
+                    $change = number_format($change, 2, '.', ''); 
+                    $forma_pago = "\nMIXTO - E: s/$payment_with_cash - T: s/$payment_with_card ($order->payment_mp) - V: s/$change";
                 }
             }
             
@@ -1075,13 +1403,6 @@ class PrintController extends Controller
             $impresora->text("FORMA DE PAGO".' '."$forma_pago"."\n");
             $is_payment = $order->paid == 1 ? 'PAGADO' : 'POR PAGAR';
             $impresora->text("$is_payment\n");
-            try {
-                //$impresora->alarm(3,100); // Intentar activar la alarma
-            } catch (\Throwable $th) {
-                // Si no es compatible, simplemente ignorar el error
-                $impresora->getPrintConnector()->write("\x07");
-                //error_log("La impresora no admite alarm(). Continuando sin alarmas.");
-            }
 
             //$testStr ="https://www.pizzaraul.work/";
             $impresora->setJustification(Printer::JUSTIFY_CENTER);
@@ -1089,8 +1410,28 @@ class PrintController extends Controller
             $impresora->feed(2);
             $impresora->cut();
             $impresora->close();
+
+            
+            $detail = [
+                "content_type" => "COMANDA",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Comanda impresa correctamente","id"=>$order->id] 
+            ];
+            $sendPos = [
+                "store_id" => $order->store_id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+
             $data = [
-                "message" => "IMPRESO CORRECTAMENTE"
+                "message" => "IMPRESO CORRECTAMENTE",
+                "status" => "correct"
             ];
         } catch (\Throwable $th) {
             //throw $th;
@@ -1099,8 +1440,25 @@ class PrintController extends Controller
             $errorFile = $th->getFile();
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
+            $detail = [
+                "content_type" => "COMANDA",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en la línea {$errorLine}","id"=>$order->id] 
+            ];
+            $sendPos = [
+                "store_id" => $order->store_id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
             $data = [
-                "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
+                "message" => "Error: {$errorMessage} en la línea {$errorLine}",
+                "status" => "error"
             ];
         }
         return $data;
@@ -1347,7 +1705,7 @@ class PrintController extends Controller
     
             $impresora->setFont(PRINTER::FONT_B);
             $impresora->text("================================================================\n");;
-            $impresora->text("Información Adicional\n");
+            $impresora->text("//información Adicional\n");
             $impresora->text("N° de pedido de tienda: $order->store_order_id\n");
 
             $forma_pago = "";
@@ -1446,7 +1804,7 @@ class PrintController extends Controller
             $data = [
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -1772,7 +2130,23 @@ class PrintController extends Controller
             $impresora->text("\n");
             $impresora->cut();
             $impresora->close();
-            return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
+            $detail = [
+                "content_type" => "CIERRE",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Cierre de caja impreso correctamente","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            return ["message" => "IMPRESION DE CIERRE DE CAJA","status" => "correct"];
         } catch (\Throwable $th) {
             //throw $th;
             // Capturar mensaje del error
@@ -1782,9 +2156,26 @@ class PrintController extends Controller
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
             $data = [
+                "status" => "error",
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "CIERRE CAJA",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -1904,7 +2295,24 @@ class PrintController extends Controller
             $impresora->feed(2);
             $impresora->cut();
             $impresora->close();
-            return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
+            $detail = [
+                "content_type" => "PALOTEO",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Paloteo impreso correctamente","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            return ["message" => "IMPRESION DE PALOTEO","status" => "correct"];
+            
         } catch (\Throwable $th) {
             //throw $th;
             // Capturar mensaje del error
@@ -1914,9 +2322,26 @@ class PrintController extends Controller
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
             $data = [
+                "status" => "error",
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "PALOTEO",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -1991,7 +2416,23 @@ class PrintController extends Controller
             $impresora->feed(2);
             $impresora->cut();
             $impresora->close();
-            return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
+            $detail = [
+                "content_type" => "INVENTARIO",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Inventario impreso correctamente","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            return ["message" => "IMPRESION DE TICKET DE VENTA","status" => "correct"];
         } catch (\Throwable $th) {
             //throw $th;
             // Capturar mensaje del error
@@ -2001,9 +2442,26 @@ class PrintController extends Controller
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
             $data = [
+                "status" => "error",
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "INVENTARIO",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}","id"=>""] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            ////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
         }
     }
@@ -2056,6 +2514,28 @@ class PrintController extends Controller
             $impresora->cut();
             $impresora->close();
 
+            $data = [
+                "status" => "correct",
+                "message" => "Movimiento impreso correctamente"
+            ];
+            //////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "MOVIMIENTOS",
+                "status" => "SUCCESS",
+                "content_reference" => ["Messsage" => "Movimiento impreso correctamente","id"=>$movimiento->id] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            return  $data;
             //-------------------------------------
         } catch (\Throwable $th) {
             // Capturar mensaje del error
@@ -2065,9 +2545,26 @@ class PrintController extends Controller
             // Capturar la línea donde ocurrió el error
             $errorLine = $th->getLine();
             $data = [
+                "status" => "error",
                 "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}"
             ];
-            Log::channel('stderr')->info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
+            $detail = [
+                "content_type" => "MOVIMIENTOS",
+                "status" => "ERROR",
+                "content_reference" => ["Messsage" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}","id"=>$movimiento->id] 
+            ];
+            $sendPos = [
+                "store_id" => $store->id,
+                "business_date" => date("Y-m-d"),
+                "printed_at" => date("Y-m-d H:i:s"),
+                "printer_id" =>$printer["printer_id"],
+                "printer_name" => $printer["printer_name"],
+                "printer_ip" => $printer["printer_ip"],
+                "detail_json" => $detail
+
+            ];
+            self::registerLogDataBase($sendPos);
+            //////Log::channel('stderr')->//info("Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}");
             return  $data;
             //throw $th;
         }
@@ -2089,9 +2586,85 @@ class PrintController extends Controller
         return response()->json(["message" => "IMPRESION DE TICKET DE VENTA"], 200 );
     }
 
+
+    public function testingPrinterConnectionV2($store,$printer) {
+        try {
+            //code...
+            $store = (object) $store;
+            if($printer["printer_ip"] != null){
+                $ip = $printer["printer_ip"];
+                $port = 9100;
+                $connector = new NetworkPrintConnector($ip, $port);
+            }else{
+                $connector = new WindowsPrintConnector($printer["printer_name"]);
+            }
+            $impresora = new Printer($connector);
+            $impresora->setFont(PRINTER::FONT_A);
+            $impresora->setJustification(Printer::JUSTIFY_CENTER);
+            $impresora->setTextSize(2, 2);
+            $impresora->setEmphasis(true);
+            $impresora->text("IMPRESIÓN DE PRUEBA\n");
+            $impresora->setTextSize(1, 1);
+            $impresora->setEmphasis(false);
+            $impresora->text("------------------------------------------------\n");
+            $impresora->setEmphasis(true);
+            $impresora->text("$store->name\n");
+            $impresora->setEmphasis(false);
+            $impresora->text("------------------------------------------------\n");
+            $impresora->setTextSize(2, 1);
+            $impresora->setEmphasis(true);
+            $impresora->text("* IMPRESIÓN DE PRUEBA *\n");
+            $impresora->setTextSize(1, 1);
+            $impresora->setEmphasis(false);
+            $impresora->text("------------------------------------------------\n");
+            $impresora->text("Este es una impresión de prueba generada\npor el sistema de Pizza Raul.\n\n");
+            $impresora->text("Este no es un documento real.\n\n");
+            $impresora->text("------------------------------------------------\n");
+            $impresora->setEmphasis(true);
+            $impresora->setJustification(Printer::JUSTIFY_CENTER);
+            $impresora->text("\n");
+            $impresora->text("\n");
+            $impresora->setEmphasis(true);
+            $impresora->text("\n");
+            $impresora->text("---------------- FIN DE PRUEBA ------------------\n");
+            $impresora->feed(5);
+            $impresora->cut();
+            $impresora->close();
+            return ["message"=> "Impresora probada correctamente", "status" => "correct"];
+        } catch (\Throwable $th) {
+            //throw $th;
+            // Capturar mensaje del error
+            $errorMessage = $th->getMessage();
+            // Capturar el archivo donde ocurrió el error
+            $errorFile = $th->getFile();
+            // Capturar la línea donde ocurrió el error
+            $errorLine = $th->getLine();
+            $data = [
+                "message" => "Error: {$errorMessage} en el archivo {$errorFile} en la línea {$errorLine}",
+                "status" => "error"
+            ];
+            return $data;
+        }
+    }
+
     
     public static function CalculaEspacio($left, $right)  {
         $espaciosCentro = 64 - strlen($left) - strlen($right);
         return $espaciosCentro;
     }
+
+
+    static function registerLogDataBase($send_pos) : void  {
+        $url = 'https://pos.app.pizzaraul.com/api/app/register-log';
+        
+
+        $response = Http::withoutVerifying()->post($url, $send_pos);
+        if($response->successful()){    
+                    
+        }else{
+
+        }
+    }
+
+
 }

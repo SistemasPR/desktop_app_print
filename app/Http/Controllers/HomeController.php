@@ -8,18 +8,21 @@ use Illuminate\View\View;
 
 class HomeController extends Controller
 {
-    private $store;
-    public function __construct() {
-        $store = StoreLogin::orderBy('id','desc')->first();
-        if($store->cookie_encrypt == null){
-            $store->cookie_encrypt = $_COOKIE["store_id"];
-            $store->save();
+
+    function configuration() {
+        if(isset($_COOKIE["Secure-PR-POS-PRINT"])){
+            return redirect()->action([HomeController::class, 'home']);
         }
-        $this->store = $store;
+
+        return view('configuration');
     }
 
     //
     function home() : View {
-        return view('home')->with('store',$this->store);
+        if(isset($_COOKIE["Secure-PR-POS-PRINT"])){
+            $store_id = $_COOKIE["Secure-PR-POS-PRINT"];
+            return view('home_v2')->with('store_id',$store_id);
+        }
+        return view('configuration');
     }
 }

@@ -15,8 +15,8 @@ class CoockieMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if(!isset($_COOKIE["store_id"])){
-            return redirect()->route('view.login');
+        if(!isset($_COOKIE["Secure-PR-POS-PRINT"])){
+            return redirect()->route('view.configuration');
         }
         return $next($request);
     }

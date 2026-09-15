@@ -5,15 +5,17 @@ use App\Http\Controllers\HomeController;
 use App\Http\Middleware\CoockieMiddleware;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect()->route('view.login');
-});
+
 
 
 //auth
-Route::get('/auth',function () {
-    return view('auth.login');
-})->name('view.login')->withoutMiddleware([CoockieMiddleware::class]);
+Route::get('/printer-app',function () {
+    return view('home_v2');
+})->name('view.home2')->withoutMiddleware([CoockieMiddleware::class]);
+
+// Route::get('/',function () {
+//     return view('configuration');
+// })->name('view.configuration');
 
 
 Route::controller(AuthController::class)->group(function (){
@@ -21,5 +23,6 @@ Route::controller(AuthController::class)->group(function (){
 });
 
 Route::controller(HomeController::class)->group(function (){
-    Route::get('/print/home','home')->name('print.home')->middleware(CoockieMiddleware::class);
+    Route::get('/','configuration')->name('view.configuration');
+    Route::get('/print/home','home')->name('view.home')->middleware(CoockieMiddleware::class);
 });

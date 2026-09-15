@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
-use Native\Laravel\Facades\Window;
-use Native\Laravel\Contracts\ProvidesPhpIni;
-use Native\Laravel\Facades\Alert;
+use Native\Desktop\Facades\Window;
+use Native\Desktop\Contracts\ProvidesPhpIni;
+use Native\Desktop\Facades\App;
+use Native\Desktop\Facades\Alert;
 
 class NativeAppServiceProvider implements ProvidesPhpIni
 {
@@ -15,11 +16,16 @@ class NativeAppServiceProvider implements ProvidesPhpIni
      */
     public function boot(): void
     {
-        Window::open()->url(route('view.login'))->title('Aplicativo de Impresión')
+        App::openAtLogin(true);
+
+        Window::open("main")->url(route('view.configuration'))->title('Aplicativo de Impresión')
         ->width(800)
-        ->height(500)
-        ->maximizable(false)
-        ->closable(false);
+        ->height(800)
+        ->hideMenu()
+        ->fullscreenable(false)
+        ->closable(false) 
+        ->maximizable(false);
+
     }
 
     /**
@@ -28,6 +34,11 @@ class NativeAppServiceProvider implements ProvidesPhpIni
     public function phpIni(): array
     {
         return [
+            'opcache.enable' => '1',
+            'opcache.enable_cli' => '1',
+            'opcache.memory_consumption' => '128',
+            'opcache.max_accelerated_files' => '10000',
+            'opcache.validate_timestamps' => '0', // en producción
         ];
     }
 }

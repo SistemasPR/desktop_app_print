@@ -15,6 +15,7 @@
         "vite": "^6.0"
     },
     "dependencies": {
+        "socket.io-client": "^4.8.3",
         "toastify-js": "^1.12.0"
     }
 }
