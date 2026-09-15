@@ -23,7 +23,7 @@ class NativeAppServiceProvider implements ProvidesPhpIni
         ->height(800)
         ->hideMenu()
         ->fullscreenable(false)
-        ->closable(false) 
+        ->closable(true)
         ->maximizable(false);
 
     }

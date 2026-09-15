@@ -79,4 +79,6 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 - **[commands]sqlite required php artisan migrate**
 - **[commands]php artisan native:install**
 - **[commands]php artisan native:serve -v (use v for debugin)**
-- **[commands]php artisan native:build win (use tag 0)**
+- **[commands]php artisan native:build win x64 -v --no-interaction**
+
+Para diagnosticar el build y preparar la caché `winCodeSign` en otra PC, consulte [la guía de build de Windows](docs/nativephp-windows-build.md).
